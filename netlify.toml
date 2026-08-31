@@ -1,0 +1,24 @@
+# ------------------------------------------------------------------
+# Patro Notre-Dame d'Ittre — configuration Netlify
+# ------------------------------------------------------------------
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+  command = "echo 'Site statique + Netlify Functions — rien a builder'"
+
+# L'API est appelee sur /api/... et redirigee vers la function "api"
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
+
+[functions]
+  node_bundler = "esbuild"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
