@@ -21,7 +21,6 @@
 
   <div id="app" style="display:none">
     <div class="grid grid-2">
-      <!-- ---- Composer ---- -->
       <section class="card">
         <h3>📝 Nouveau message</h3>
 
@@ -67,7 +66,6 @@
         <div id="resultat"></div>
       </section>
 
-      <!-- ---- Colonne droite ---- -->
       <div>
         <div class="grid grid-2" id="stats"></div>
         <section class="card">
@@ -120,7 +118,6 @@ function renderStats(){
     <div class="stat rouge"><div class="val">${D.enfants.length-ok}</div><div class="lbl">Cotisations dues</div></div>`;
 }
 
-/* ---- calcul des destinataires côté client (aperçu) ---- */
 function destinataires(){
   const cible=document.getElementById('cible').value;
   const sid=document.getElementById('sectionId').value;
@@ -146,7 +143,6 @@ function majCible(){
     `<strong>${d.length} destinataire(s)</strong>${d.length?' : '+d.map(e=>`<span class="chip">${esc(e)}</span>`).join(''):' — aucun'}`;
 }
 
-/* ---- modèles ---- */
 const MODELES={
   'rappel-cotisation':{
     sujet:'Rappel — cotisation annuelle du Patro',

@@ -11,7 +11,6 @@
   <h1 class="page-title"><span class="ico">⚙️</span> Module de gestion</h1>
   <p class="page-sub">Réservé au président et au staff : chefs, sections, cotisations, calendrier et informations.</p>
 
-  <!-- Login admin -->
   <section class="card card-accent" id="boxLogin">
     <h2>🔒 Accès réservé</h2>
     <label>Mot de passe administrateur</label>
@@ -34,7 +33,6 @@
       <button class="tab" data-tab="outils">🛠️ Outils</button>
     </div>
 
-    <!-- ===== Cotisations ===== -->
     <div class="tab-panel active" id="panel-cotisations">
       <section class="card">
         <h3>💳 Suivi des cotisations</h3>
@@ -49,7 +47,6 @@
       </section>
     </div>
 
-    <!-- ===== Chefs ===== -->
     <div class="tab-panel" id="panel-chefs">
       <section class="card card-accent">
         <h3 id="chefTitre">➕ Ajouter un chef</h3>
@@ -79,7 +76,6 @@
       <section class="card"><h3>Équipe d'animation</h3><div id="listeChefs"></div></section>
     </div>
 
-    <!-- ===== Sections ===== -->
     <div class="tab-panel" id="panel-sections">
       <section class="card card-accent">
         <h3 id="secTitre">➕ Ajouter / modifier une section</h3>
@@ -103,7 +99,6 @@
       <div id="listeSections" class="grid grid-3"></div>
     </div>
 
-    <!-- ===== Membres ===== -->
     <div class="tab-panel" id="panel-membres">
       <section class="card">
         <h3>👧 Tous les membres</h3>
@@ -113,7 +108,6 @@
       <section class="card"><h3>👨‍👩‍👧 Parents</h3><div id="listeParents"></div></section>
     </div>
 
-    <!-- ===== Réunions ===== -->
     <div class="tab-panel" id="panel-calendrier">
       <section class="card card-accent">
         <h3 id="reuTitre">➕ Ajouter une réunion / activité</h3>
@@ -144,7 +138,6 @@
       <section class="card"><h3>🗓️ Calendrier</h3><div id="listeReunions"></div></section>
     </div>
 
-    <!-- ===== Infos ===== -->
     <div class="tab-panel" id="panel-infos">
       <section class="card card-accent">
         <h3 id="infoTitre">➕ Publier une information</h3>
@@ -164,7 +157,6 @@
       <div id="listeInfos" class="grid grid-2"></div>
     </div>
 
-    <!-- ===== Outils ===== -->
     <div class="tab-panel" id="panel-outils">
       <section class="card">
         <h3>🛠️ Outils &amp; base de données</h3>
@@ -235,7 +227,6 @@ function renderStats(){
     <div class="stat jaune"><div class="val">${total} €</div><div class="lbl">Cotisations perçues</div></div>`;
 }
 
-/* ---------- Cotisations ---------- */
 function renderCotisations(){
   const fs=document.getElementById('cotSection').value;
   const fe=document.getElementById('cotEtat').value;
@@ -268,7 +259,6 @@ async function majCotisation(id,payee,montant){
   }catch(e){ toast(e.message,true); }
 }
 
-/* ---------- Chefs ---------- */
 function renderChefs(){
   document.getElementById('listeChefs').innerHTML=D.chefs.length?`
     <div class="table-wrap"><table>
@@ -306,7 +296,6 @@ async function delChef(id){
   await api('chefs/delete',{method:'POST',admin:true,body:{id}}); toast('Chef supprimé'); await tout();
 }
 
-/* ---------- Sections ---------- */
 function renderSections(){
   document.getElementById('listeSections').innerHTML=D.sections.map(s=>`
     <article class="section-card">
@@ -336,7 +325,6 @@ async function saveSection(){
   catch(e){ toast(e.message,true); }
 }
 
-/* ---------- Membres ---------- */
 function renderMembres(){
   document.getElementById('listeMembres').innerHTML=D.enfants.length?`
     <div class="table-wrap"><table>
@@ -371,7 +359,6 @@ function exportCSV(){
   a.download='membres-patro-ittre.csv'; a.click();
 }
 
-/* ---------- Réunions ---------- */
 function renderReunions(){
   const list=[...D.reunions].sort((a,b)=>a.date.localeCompare(b.date));
   document.getElementById('listeReunions').innerHTML=list.length?`
@@ -433,7 +420,6 @@ async function genererSamedis(){
   toast(nb+' samedis générés ✔'); await tout();
 }
 
-/* ---------- Infos ---------- */
 function renderInfos(){
   document.getElementById('listeInfos').innerHTML=D.infos.length?D.infos.map(i=>`
     <div class="card ${i.important?'card-accent':''}" style="margin:0">
@@ -463,7 +449,6 @@ async function delInfo(id){
   await api('infos/delete',{method:'POST',admin:true,body:{id}}); toast('Supprimée'); await tout();
 }
 
-/* ---------- Outils ---------- */
 async function voirDB(){
   const db=await api('db');
   const p=document.getElementById('dbDump');
@@ -480,7 +465,6 @@ async function resetDB(){
   await api('reset',{method:'POST',admin:true,body:{}}); toast('Base réinitialisée'); await tout();
 }
 
-/* auto-login si déjà authentifié dans la session */
 if(sessionStorage.getItem('patro_admin_pwd')){
   document.getElementById('pwd').value=sessionStorage.getItem('patro_admin_pwd');
   connexion();

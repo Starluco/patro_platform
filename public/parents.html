@@ -11,7 +11,6 @@
   <h1 class="page-title"><span class="ico">👨‍👩‍👧</span> Espace parents</h1>
   <p class="page-sub">Inscrivez vos enfants, consultez leur section, leurs chefs, le calendrier et modifiez vos coordonnées.</p>
 
-  <!-- ================= CONNEXION / INSCRIPTION ================= -->
   <div id="vue-login">
     <div class="grid grid-2">
       <section class="card card-accent">
@@ -50,7 +49,6 @@
     </div>
   </div>
 
-  <!-- ================= ESPACE CONNECTÉ ================= -->
   <div id="vue-espace" style="display:none">
     <div class="card card-accent" style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
       <div>
@@ -68,7 +66,6 @@
       <button class="tab" data-tab="fiche">📄 Fiche d'inscription</button>
     </div>
 
-    <!-- ---- Enfants ---- -->
     <div class="tab-panel active" id="panel-enfants">
       <div id="mesEnfants" class="grid grid-2"></div>
       <section class="card" style="margin-top:18px">
@@ -96,10 +93,8 @@
       </section>
     </div>
 
-    <!-- ---- Chefs ---- -->
     <div class="tab-panel" id="panel-chefs"><div id="mesChefs"></div></div>
 
-    <!-- ---- Calendrier ---- -->
     <div class="tab-panel" id="panel-calendrier">
       <section class="card">
         <label>Filtrer par section</label>
@@ -108,7 +103,6 @@
       </section>
     </div>
 
-    <!-- ---- Coordonnées ---- -->
     <div class="tab-panel" id="panel-coord">
       <section class="card card-accent">
         <h3>✏️ Modifier mes coordonnées</h3>
@@ -131,7 +125,6 @@
       </section>
     </div>
 
-    <!-- ---- Fiche ---- -->
     <div class="tab-panel" id="panel-fiche">
       <section class="card">
         <h3>📄 Fiche d'inscription</h3>
@@ -152,7 +145,6 @@ renderFooter();
 
 let DATA = { parent:null, enfants:[], sections:[], chefs:[], reunions:[] };
 
-/* ---------- Onglets ---------- */
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));
@@ -160,7 +152,6 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   document.getElementById('panel-'+t.dataset.tab).classList.add('active');
 });
 
-/* ---------- Connexion ---------- */
 async function login(email){
   const mail = email || document.getElementById('loginEmail').value.trim();
   if(!mail) return toast('Indiquez votre e-mail', true);
@@ -168,7 +159,7 @@ async function login(email){
     const r = await api('parents/login',{method:'POST',body:{email:mail}});
     parentSession.set({email:mail});
     DATA.parent=r.parent; DATA.enfants=r.enfants; DATA.sections=r.sections; DATA.chefs=r.chefs;
-    const { reunions } = await api('reunions'); DATA.reunions=reunions;
+    const a=await api('reunions'); DATA.reunions=a.reunions;
     afficherEspace();
   }catch(e){
     document.getElementById('loginMsg').innerHTML=`<div class="alert alert-err">${esc(e.message)}</div>`;
@@ -190,7 +181,6 @@ async function inscrire(){
 }
 const v = id => document.getElementById(id).value.trim();
 
-/* ---------- Espace ---------- */
 function afficherEspace(){
   document.getElementById('vue-login').style.display='none';
   document.getElementById('vue-espace').style.display='block';
@@ -198,11 +188,9 @@ function afficherEspace(){
   document.getElementById('bienvenue').textContent=`Bonjour ${p.prenom} ${p.nom} 👋`;
   document.getElementById('bienvenueSub').textContent=
     `${DATA.enfants.length} enfant(s) inscrit(s) • ${p.email}`;
-  // selects
   const opts = DATA.sections.map(s=>`<option value="${s.id}">${esc(s.nom)} (${esc(s.tranche)})</option>`).join('');
   document.getElementById('efSection').innerHTML='<option value="">— À déterminer —</option>'+opts;
   document.getElementById('calSection').innerHTML='<option value="">Toutes les sections</option>'+opts;
-  // coordonnées
   ['Prenom','Nom','Email','Tel','Adresse','Remarques'].forEach(k=>
     document.getElementById('c'+k).value = p[k.toLowerCase()] || '');
   document.getElementById('cCP').value=p.codePostal||'';
@@ -379,7 +367,6 @@ async function saveCoord(){
   }catch(e){ toast(e.message,true); }
 }
 
-/* auto-login */
 (function(){ const s=parentSession.get(); if(s?.email) login(s.email); })();
 </script>
 </body>

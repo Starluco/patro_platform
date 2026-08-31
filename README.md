@@ -3,6 +3,18 @@
 Application web (statique + Netlify Functions + **Netlify Blobs** comme base de données JSON)
 pour gérer les inscriptions, sections, chefs, cotisations, présences et communications.
 
+## ⚠️ Correctif important (v1.0.1)
+
+La v1.0.0 contenait un `netlify.toml` avec une redirection `/api/* -> /.netlify/functions/api/:splat`.
+Or la fonction déclare elle-même sa route via `export const config = { path: '/api/*' }`
+(syntaxe "Netlify Functions v2"). **Quand une fonction définit un `path` personnalisé, elle n'est
+plus disponible du tout à l'ancienne adresse `/.netlify/functions/...`.** La redirection pointait donc
+vers une adresse qui n'existait plus → 404 systématique sur toutes les routes `/api/*`.
+
+**Correctif appliqué :** suppression du bloc `[[redirects]]` dans `netlify.toml`. Le routage est
+désormais géré uniquement par `config.path` dans `api.mjs`, comme recommandé par la documentation
+Netlify pour les fonctions modernes.
+
 ## 🧩 Modules (1 fichier HTML par module)
 
 | Fichier | Module | Contenu |
@@ -18,46 +30,20 @@ pour gérer les inscriptions, sections, chefs, cotisations, présences et commun
 Netlify Blobs — store `patro-db`, clé `database`, un seul objet JSON contenant :
 `sections`, `chefs`, `parents`, `enfants`, `reunions`, `presences`, `infos`, `messages`.
 
-Tout passe par une seule function : `netlify/functions/api.mjs` exposée sur `/api/*`.
-Au premier appel, la base est automatiquement initialisée avec des **données fictives**
-(6 sections, 8 chefs, 2 familles, 3 enfants, tous les samedis + le camp).
+Tout passe par une seule function : `netlify/functions/api.mjs`, routée via `config.path = "/api/*"`.
+Au premier appel, la base est automatiquement initialisée avec des **données fictives**.
 
-### Routes principales
-```
-GET  /api/db                     GET  /api/sections            POST /api/sections
-POST /api/reset                  GET  /api/chefs               POST /api/chefs
-POST /api/admin/login            POST /api/chefs/delete
-POST /api/parents/login          POST /api/parents
-POST /api/enfants                POST /api/enfants/delete      POST /api/enfants/cotisation
-GET  /api/reunions               POST /api/reunions            POST /api/reunions/delete
-GET  /api/presences              POST /api/presences
-GET  /api/infos                  POST /api/infos               POST /api/infos/delete
-GET  /api/messages               POST /api/messages/send
-```
+## 🚀 Déploiement sur Netlify (via GitHub — recommandé)
 
-## 🚀 Déploiement sur Netlify
+1. Pousser ce dépôt sur GitHub
+2. Netlify → **Add new site → Import an existing project → GitHub**
+3. Sélectionner le dépôt. Vérifier les build settings (normalement auto-détectés via `netlify.toml`) :
+   - **Publish directory** : `public`
+   - **Functions directory** : `netlify/functions`
+   - **Build command** : `echo 'Site statique + Netlify Functions — rien a builder'` (ou vide)
+4. **Deploy site**
 
-### 1. En local
-```bash
-npm install
-npx netlify dev        # http://localhost:8888  (Blobs fonctionne en local)
-```
-
-### 2. Sur Netlify
-```bash
-npm install -g netlify-cli
-netlify login
-netlify init           # ou : glisser le dossier sur app.netlify.com/drop
-netlify deploy --prod
-```
-
-Ou via Git : pousser le dépôt, puis dans Netlify → *Add new site* → *Import from Git*.
-Les réglages sont déjà dans `netlify.toml` :
-- **Publish directory** : `public`
-- **Functions directory** : `netlify/functions`
-- **Build command** : aucune (site statique)
-
-### 3. Variables d'environnement (Site configuration → Environment variables)
+### Variables d'environnement (Site configuration → Environment variables)
 
 | Variable | Rôle | Exemple |
 |---|---|---|
@@ -65,9 +51,15 @@ Les réglages sont déjà dans `netlify.toml` :
 | `RESEND_API_KEY` | *(optionnel)* envoi de vrais e-mails via Resend | `re_xxx` |
 | `MAIL_FROM` | expéditeur des e-mails | `Patro Ittre <pndi@patro.be>` |
 
-> Sans `RESEND_API_KEY`, le module de communication fonctionne en **mode simulation** :
-> le message et la liste des destinataires sont enregistrés (utile pour tester),
-> et le bouton « Copier les adresses » permet de coller les adresses dans votre client mail.
+Après avoir ajouté une variable, **redéployer** (Deploys → Trigger deploy).
+
+### Vérifier que l'API fonctionne
+
+```
+https://ton-site.netlify.app/api/db
+```
+→ doit renvoyer du JSON (pas une 404). Sinon, vérifier dans l'onglet **Functions** du site que
+la fonction `api` apparaît bien dans la liste des fonctions déployées.
 
 ## 🔑 Accès de démonstration
 
@@ -76,9 +68,3 @@ Les réglages sont déjà dans `netlify.toml` :
 
 ## 🎨 Charte graphique
 Vert (`#1B5E20`, `#2E7D32`, `#7BC043`) et jaune (`#F9C80E`) — variables CSS dans `public/assets/style.css`.
-
-## 📌 Améliorations possibles
-- Vrai système de comptes (Netlify Identity) au lieu de l'e-mail seul
-- Paiement en ligne des cotisations
-- Export PDF des listes de présence par section
-- Envoi automatique des rappels (Netlify Scheduled Functions)

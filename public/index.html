@@ -22,7 +22,6 @@
 
 <main class="container">
 
-  <!-- ---------- Présentation ---------- -->
   <div class="grid grid-2">
     <section class="card card-accent">
       <h2>🌳 Qui sommes-nous ?</h2>
@@ -53,20 +52,16 @@
     </section>
   </div>
 
-  <!-- ---------- Sections ---------- -->
   <h2 class="page-title" style="margin-top:36px"><span class="ico">🎯</span> Nos sections</h2>
   <p class="page-sub">Chaque enfant rejoint une section adaptée à son âge, encadrée par ses propres chefs.</p>
   <div id="sections" class="grid grid-3"><div class="loader"></div></div>
 
-  <!-- ---------- Actualités ---------- -->
   <h2 class="page-title" style="margin-top:40px"><span class="ico">📣</span> Actualités &amp; informations</h2>
   <div id="infos" class="grid grid-2"><div class="loader"></div></div>
 
-  <!-- ---------- Prochaines dates ---------- -->
   <h2 class="page-title" style="margin-top:40px"><span class="ico">🗓️</span> Prochaines dates</h2>
   <div class="card"><div id="agenda"><div class="loader"></div></div></div>
 
-  <!-- ---------- Accès rapide ---------- -->
   <h2 class="page-title" style="margin-top:40px"><span class="ico">🚀</span> Accès rapide</h2>
   <div class="grid grid-4">
     <a class="card" style="text-decoration:none;text-align:center" href="parents.html">
@@ -91,7 +86,6 @@ renderNav('index.html');
 renderFooter();
 
 (async function init(){
-  /* --- Sections --- */
   try{
     const { sections } = await api('sections');
     document.getElementById('sections').innerHTML = sections.map(s => `
@@ -116,7 +110,6 @@ renderFooter();
       `<div class="alert alert-err">Impossible de charger les sections : ${esc(e.message)}</div>`;
   }
 
-  /* --- Infos --- */
   try{
     const { infos } = await api('infos');
     document.getElementById('infos').innerHTML = infos.length ? infos.map(i=>`
@@ -131,7 +124,6 @@ renderFooter();
       : '<div class="empty"><span class="big">📭</span>Aucune actualité pour le moment.</div>';
   }catch(e){ document.getElementById('infos').innerHTML=''; }
 
-  /* --- Agenda --- */
   try{
     const { reunions } = await api('reunions');
     const today = new Date().toISOString().slice(0,10);

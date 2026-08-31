@@ -4,7 +4,10 @@
  *  Base de donnees : Netlify Blobs (store "patro-db", un seul blob JSON)
  *  Doc : https://docs.netlify.com/build/data-and-storage/netlify-blobs/
  * =====================================================================
- *  Toutes les routes sont accessibles via /api/<route>
+ *  Cette fonction declare elle-meme sa route via `config.path = "/api/*"`.
+ *  Elle est donc UNIQUEMENT accessible sur /api/... (pas sur
+ *  /.netlify/functions/api/...). Ne pas ajouter de [[redirects]] vers
+ *  cette derniere adresse dans netlify.toml : cela provoque des 404.
  *
  *   GET  /api/db                      -> toute la base (debug / admin)
  *   POST /api/reset                   -> reinitialise avec les donnees demo
@@ -109,7 +112,6 @@ function seed() {
       allergies: '', remarquesMedicales: '', photoAutorisee: false },
   ];
 
-  // Reunions : tous les samedis 14h-17h + le camp
   const reunions = [];
   const samedis = [
     '2025-09-06','2025-09-13','2025-09-20','2025-09-27',
@@ -164,7 +166,6 @@ async function readDB() {
     db = seed();
     await store.setJSON(KEY, db);
   }
-  // securite : garantir la presence de chaque collection
   for (const k of ['sections','chefs','parents','enfants','reunions','presences','infos','messages']) {
     if (!Array.isArray(db[k])) db[k] = [];
   }
@@ -196,6 +197,7 @@ export default async (request, context) => {
   if (request.method === 'OPTIONS') return json({ ok: true });
 
   const url = new URL(request.url);
+  // Cette fonction est routee via config.path = "/api/*" -> pathname = /api/xxx
   const route = url.pathname
     .replace(/^\/api\//, '')
     .replace(/^\/\.netlify\/functions\/api\/?/, '')
@@ -212,7 +214,6 @@ export default async (request, context) => {
   const needAdmin = () => json({ error: 'Mot de passe administrateur invalide.' }, 401);
 
   try {
-    /* ---------------- systeme ---------------- */
     if (route === 'db' && request.method === 'GET') return json(await readDB());
 
     if (route === 'reset' && request.method === 'POST') {
@@ -356,7 +357,6 @@ export default async (request, context) => {
       const { sujet, texte, cible = 'tous', sectionId = null, destinatairesManuels = [] } = body;
       if (!sujet || !texte) return json({ error: 'Sujet et message requis.' }, 400);
 
-      // calcul des destinataires
       const parentsAvecEnfants = (filtre) => {
         const ids = new Set(db.enfants.filter(filtre).map((e) => e.parentId));
         return db.parents.filter((p) => ids.has(p.id));
@@ -373,7 +373,6 @@ export default async (request, context) => {
       }
       const emails = [...new Set(dest.map((d) => d.email).filter(Boolean))];
 
-      // envoi reel si RESEND_API_KEY est configuree, sinon simulation
       let envoye = false, erreur = null;
       if (process.env.RESEND_API_KEY && emails.length) {
         try {

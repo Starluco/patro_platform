@@ -11,7 +11,6 @@
   <h1 class="page-title"><span class="ico">✅</span> Module de présence</h1>
   <p class="page-sub">Indiquez pour chaque réunion si votre enfant sera présent, absent ou en retard.</p>
 
-  <!-- Connexion -->
   <section class="card card-accent" id="boxLogin">
     <h2>🔑 Identification</h2>
     <label>Votre adresse e-mail de parent</label>
@@ -86,7 +85,6 @@ function render(){
   const fEnf=document.getElementById('filtreEnfant').value;
   const enfants=fEnf?D.enfants.filter(e=>e.id===fEnf):D.enfants;
 
-  /* stats */
   let tot=0,pres=0,abs=0,attente=0;
   D.enfants.forEach(e=>reunionsPourEnfant(e).filter(r=>r.date<=today).forEach(r=>{
     tot++; const p=presenceOf(e.id,r.id);
@@ -99,7 +97,6 @@ function render(){
     <div class="stat rouge"><div class="val">${abs}</div><div class="lbl">Absences</div></div>
     <div class="stat jaune"><div class="val">${taux}%</div><div class="lbl">Taux de participation</div></div>`;
 
-  /* liste */
   const el=document.getElementById('liste');
   if(!enfants.length){ el.innerHTML='<div class="empty"><span class="big">👶</span>Aucun enfant. Ajoutez-les dans l\'espace parents.</div>'; return; }
 

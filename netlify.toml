@@ -6,12 +6,11 @@
   functions = "netlify/functions"
   command = "echo 'Site statique + Netlify Functions — rien a builder'"
 
-# L'API est appelee sur /api/... et redirigee vers la function "api"
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
-  status = 200
-  force = true
+# IMPORTANT :
+# La fonction netlify/functions/api.mjs declare elle-meme sa route
+# via  export const config = { path: "/api/*" };
+# => AUCUN [[redirects]] ne doit etre defini vers /.netlify/functions/api,
+#    sinon cela cree un conflit de routage qui provoque des erreurs 404.
 
 [functions]
   node_bundler = "esbuild"

@@ -17,7 +17,6 @@ async function api(route, { method = 'GET', body = null, admin = false } = {}) {
   return data;
 }
 
-/* --------- Toast --------- */
 function toast(msg, isError = false) {
   let t = document.getElementById('toast');
   if (!t) { t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
@@ -27,7 +26,6 @@ function toast(msg, isError = false) {
   t._to = setTimeout(() => (t.className = ''), 3600);
 }
 
-/* --------- Navigation partagee --------- */
 const NAV = [
   { href: 'index.html',      label: '🏠 Accueil' },
   { href: 'parents.html',    label: '👨‍👩‍👧 Espace parents' },
@@ -60,7 +58,6 @@ function renderFooter() {
   </footer>`);
 }
 
-/* --------- Helpers --------- */
 const SECTION_COULEURS = {
   bengalis: '#7BC043', benjas: '#4CAF50', 'chev-etc': '#F9C80E',
   'conq-alps': '#F4A100', aventuriers: '#2E7D32', grands: '#C9A227',
@@ -91,7 +88,6 @@ function sectionSuggeree(naissance, sections) {
 }
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-/* --------- Session parent --------- */
 const parentSession = {
   get: () => { try { return JSON.parse(localStorage.getItem('patro_parent') || 'null'); } catch { return null; } },
   set: (p) => localStorage.setItem('patro_parent', JSON.stringify(p)),
