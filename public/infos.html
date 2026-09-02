@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Infos importantes — Patro Notre-Dame d'Ittre</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="hero hero-sm"><h1>📌 Infos importantes</h1><p>Les informations pratiques à connaître</p></header>
+<main class="container-sm">
+  <p class="fil-ariane"><a href="index.html">🏠 Accueil</a> / Infos importantes</p>
+  <section class="card card-accent">
+    <ul class="list-clean" id="liste" style="font-size:1.05rem"><li><div class="loader"></div></li></ul>
+  </section>
+  <div class="btn-row"><a href="index.html" class="btn btn-ghost">← Retour à l'accueil</a>
+    <a href="inscription.html" class="btn btn-jaune">📝 Inscrire mon enfant</a></div>
+</main>
+<script src="assets/app.js"></script>
+<script>
+const ICONES = ['🗓️','🍪','📍','🤝','⛺'];
+(async function(){
+  await renderHeader(''); renderFooter();
+  try{
+    const { contenu } = await api('contenu');
+    const lignes = contenu.infosImportantes.split('\n').filter(Boolean);
+    document.getElementById('liste').innerHTML = lignes.map((l,i)=>
+      `<li><span>${ICONES[i%ICONES.length]}</span><div>${esc(l)}</div></li>`).join('');
+  }catch(e){ document.getElementById('liste').innerHTML = '<li class="alert alert-err">Impossible de charger les informations.</li>'; }
+})();
+</script>
+</body>
+</html>

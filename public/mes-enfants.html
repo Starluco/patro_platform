@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mes enfants — Patro Notre-Dame d'Ittre</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main class="container">
+  <h1 class="page-title"><span class="ico">👧</span> Mes enfants</h1>
+  <p class="page-sub">Cliquez sur un enfant pour accéder à son calendrier, ses chefs et poser une question.</p>
+
+  <div id="tableauBord" class="grid grid-4" style="margin-bottom:10px"></div>
+  <div id="liste" class="grid grid-2"><div class="loader"></div></div>
+
+  <section class="card" style="margin-top:10px">
+    <h3>➕ Ajouter un autre enfant à mon compte</h3>
+    <div class="row">
+      <div><label>Prénom *</label><input id="efPrenom"></div>
+      <div><label>Nom</label><input id="efNom"></div>
+      <div><label>Lien de parenté</label><select id="efLien">
+        <option>Mère</option><option>Père</option><option>Tuteur/Tutrice</option><option>Grand-parent</option><option>Autre responsable</option>
+      </select></div>
+    </div>
+    <div class="row">
+      <div><label>Date de naissance *</label><input type="date" id="efNaissance" onchange="suggererSection()"></div>
+      <div><label>Section</label><select id="efSection"></select><p class="hint" id="efSuggestion"></p></div>
+    </div>
+    <div class="row">
+      <div><label>Allergies</label><input id="efAllergies"></div>
+      <div><label>Remarques médicales</label><input id="efMedical"></div>
+    </div>
+    <div class="btn-row"><button class="btn btn-jaune" onclick="ajouter()">Ajouter cet enfant</button></div>
+  </section>
+</main>
+<script src="assets/app.js"></script>
+<script>
+let SECTIONS = [];
+(async function(){
+  const me = await requireAuth(['parent']); if(!me) return;
+  await renderHeader('mes-enfants.html'); renderFooter();
+  await charger();
+})();
+
+async function charger(){
+  const { enfants, sections } = await api('enfants/mes');
+  SECTIONS = sections;
+  document.getElementById('efSection').innerHTML = '<option value="">— À déterminer —</option>' +
+    sections.map(s=>`<option value="${s.id}">${esc(s.nom)} (${esc(s.tranche)})</option>`).join('');
+
+  // tableau de bord global
+  let totPay=0, totDu=0, totPresences=0, totReponses=0;
+  for(const e of enfants){
+    (e.paiements||[]).forEach(p=>{ if(p.paye) totPay+=p.montant; else totDu+=p.montant; });
+  }
+  document.getElementById('tableauBord').innerHTML = `
+    <div class="stat"><div class="val">${enfants.length}</div><div class="lbl">Enfant(s) inscrit(s)</div></div>
+    <div class="stat"><div class="val">${totPay} €</div><div class="lbl">Total payé</div></div>
+    <div class="stat rouge"><div class="val">${totDu} €</div><div class="lbl">Total restant dû</div></div>
+    <div class="stat jaune"><div class="val"><a href="profil.html#notifications" style="color:inherit;text-decoration:none">🔔</a></div><div class="lbl">Voir mes notifications</div></div>`;
+
+  const el = document.getElementById('liste');
+  if(!enfants.length){ el.innerHTML = '<div class="empty"><span class="big">👶</span>Aucun enfant. Utilisez le formulaire ci-dessous.</div>'; return; }
+  el.innerHTML = enfants.map(e=>{
+    const s = sections.find(x=>x.id===e.sectionId);
+    const dus = (e.paiements||[]).filter(p=>!p.paye).length;
+    return `<a class="enfant-bulle" href="enfant.html?id=${e.id}">
+      <div class="enfant-avatar" style="background:${s?s.couleur:'#999'}">${esc((e.prenom[0]||'?').toUpperCase())}</div>
+      <div style="flex:1">
+        <h3>${esc(e.prenom)} ${esc(e.nom)}</h3>
+        <p class="hint">${s? s.emoji+' '+esc(s.nom) : 'Section à déterminer'} • ${age(e.naissance)} ans</p>
+      </div>
+      ${dus>0?`<span class="badge badge-ko">${dus} paiement(s) dû(s)</span>`:'<span class="badge badge-ok">✔ à jour</span>'}
+    </a>`;
+  }).join('');
+}
+
+function suggererSection(){
+  const id = sectionSuggeree(document.getElementById('efNaissance').value, SECTIONS);
+  const s = SECTIONS.find(x=>x.id===id);
+  document.getElementById('efSuggestion').textContent = s ? `Suggestion : ${s.nom} (${s.tranche})` : '';
+  if(s && !document.getElementById('efSection').value) document.getElementById('efSection').value = id;
+}
+async function ajouter(){
+  const enfant = {
+    prenom: v('efPrenom'), nom: v('efNom'), lien: document.getElementById('efLien').value,
+    naissance: v('efNaissance'), sectionId: document.getElementById('efSection').value,
+    allergies: v('efAllergies'), remarquesMedicales: v('efMedical'), photoAutorisee: true,
+  };
+  if(!enfant.prenom||!enfant.naissance) return toast('Prénom et date de naissance requis',true);
+  try{ await api('enfants',{method:'POST',body:{enfant}}); toast('Enfant ajouté ✔');
+    ['efPrenom','efNom','efNaissance','efAllergies','efMedical'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('efSection').value=''; await charger();
+  }catch(e){ toast(e.message,true); }
+}
+const v = id => document.getElementById(id).value.trim();
+</script>
+</body>
+</html>

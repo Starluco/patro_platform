@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Connexion — Patro Notre-Dame d'Ittre</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="hero hero-sm"><h1>🔑 Connexion</h1><p>Accédez à votre espace personnel</p></header>
+<main class="container-sm">
+  <section class="card card-accent">
+    <label>Adresse e-mail</label><input type="email" id="email" autocomplete="email">
+    <label>Mot de passe</label><input type="password" id="password" autocomplete="current-password"
+      onkeydown="if(event.key==='Enter')connecter()">
+    <div class="btn-row"><button class="btn btn-primary" onclick="connecter()">Se connecter</button></div>
+    <div id="msg"></div>
+    <div class="divider"></div>
+    <p class="hint">Comptes de démonstration :</p>
+    <ul class="list-clean" style="font-size:.85rem">
+      <li>👤 Parent : <code>marie.durand@example.com</code> / <code>parent123</code></li>
+      <li>🧑‍🏫 Animateur : <code>camille.dubois@patro-ittre.be</code> / <code>animateur123</code></li>
+      <li>⚙️ Admin : <code>admin@patro.be</code> / <code>admin123</code></li>
+    </ul>
+  </section>
+  <p style="text-align:center">Pas encore de compte ? <a href="inscription.html">Créer une demande d'inscription</a></p>
+</main>
+<script src="assets/app.js"></script>
+<script>
+renderHeader('');
+renderFooter();
+async function connecter(){
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  if(!email||!password) return toast('E-mail et mot de passe requis',true);
+  try{
+    const r = await api('auth/login',{method:'POST',body:{email,password}});
+    session.token = r.token; session.compte = r.compte; session.label = r.label;
+    toast('Connexion réussie ✔');
+    location.href = r.compte.role==='admin' ? 'admin.html' : r.compte.role==='animateur' ? 'animateur.html' : 'mes-enfants.html';
+  }catch(e){ document.getElementById('msg').innerHTML = `<div class="alert alert-err">${esc(e.message)}</div>`; }
+}
+</script>
+</body>
+</html>

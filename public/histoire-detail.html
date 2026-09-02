@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Histoire — détail — Patro Notre-Dame d'Ittre</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="hero hero-sm"><h1 id="titre">📜 Événement</h1><p id="date"></p></header>
+<main class="container-sm">
+  <p class="fil-ariane"><a href="index.html">🏠 Accueil</a> / <a href="histoire.html">Histoire</a> / <span id="filTitre"></span></p>
+  <section class="card card-accent"><div id="texte" style="white-space:pre-wrap;font-size:1.02rem"><div class="loader"></div></div></section>
+  <div class="btn-row"><a href="histoire.html" class="btn btn-ghost">← Retour à la ligne du temps</a></div>
+</main>
+<script src="assets/app.js"></script>
+<script>
+(async function(){
+  await renderHeader(''); renderFooter();
+  const id = new URLSearchParams(location.search).get('id');
+  try{
+    const { contenu } = await api('contenu');
+    const h = (contenu.histoire||[]).find(x=>x.id===id);
+    if(!h){ document.getElementById('texte').innerHTML = '<div class="alert alert-err">Événement introuvable.</div>'; return; }
+    document.getElementById('titre').textContent = '📜 ' + h.titre;
+    document.getElementById('date').textContent = h.date;
+    document.getElementById('filTitre').textContent = h.titre;
+    document.getElementById('texte').textContent = h.texteLong || h.texteCourt || '';
+  }catch(e){ document.getElementById('texte').innerHTML = '<div class="alert alert-err">Impossible de charger l\'événement.</div>'; }
+})();
+</script>
+</body>
+</html>

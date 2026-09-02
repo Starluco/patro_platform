@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fiche enfant — Patro Notre-Dame d'Ittre</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main class="container">
+  <p class="fil-ariane"><a href="index.html">🏠 Accueil</a> / <a href="mes-enfants.html">Mes enfants</a> / <span id="filNom"></span></p>
+  <div class="card card-accent" id="enteteEnfant" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <div class="loader"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="calendrier">🗓️ Calendrier</button>
+    <button class="tab" data-tab="chefs">🧑‍🏫 Les chefs de ma section</button>
+    <button class="tab" data-tab="questions">❓ Questions</button>
+    <button class="tab" data-tab="documents">📄 Documents</button>
+  </div>
+
+  <div class="tab-panel active" id="panel-calendrier"><div id="calendrier"><div class="loader"></div></div></div>
+
+  <div class="tab-panel" id="panel-chefs"><div id="chefs"></div></div>
+
+  <div class="tab-panel" id="panel-questions">
+    <section class="card">
+      <h3>Poser une question</h3>
+      <div class="row">
+        <div><label>Catégorie</label>
+          <select id="qCategorie" onchange="document.getElementById('qMsg').textContent=''">
+            <option value="section">Question concernant ma section</option>
+            <option value="patro">Question concernant le Patro ou un événement</option>
+          </select></div>
+      </div>
+      <label>Votre question</label><textarea id="qTexte"></textarea>
+      <div class="btn-row"><button class="btn btn-primary" onclick="poser()">Envoyer la question</button></div>
+      <div id="qMsg"></div>
+    </section>
+    <section class="card"><h3>Historique de mes questions concernant cet enfant</h3><div id="qHistorique"></div></section>
+  </div>
+
+  <div class="tab-panel" id="panel-documents">
+    <section class="card">
+      <h3>🩺 Fiche de santé</h3>
+      <div class="row">
+        <div><label>Groupe sanguin</label><input id="fsGroupe"></div>
+        <div><label>Médecin traitant</label><input id="fsMedecin"></div>
+      </div>
+      <label>Allergies</label><input id="fsAllergies">
+      <label>Traitements / remarques médicales</label><textarea id="fsRemarques"></textarea>
+      <div class="btn-row"><button class="btn btn-primary" onclick="sauverDoc('ficheSante')">💾 Enregistrer la fiche de santé</button></div>
+      <p class="hint" id="fsMaj"></p>
+    </section>
+    <section class="card">
+      <h3>✅ Autorisation parentale</h3>
+      <div class="check"><input type="checkbox" id="apPhoto"> <label style="margin:0">J'autorise la publication de photos de mon enfant</label></div>
+      <div class="check"><input type="checkbox" id="apSecours"> <label style="margin:0">J'autorise les premiers secours en cas de besoin</label></div>
+      <label>Personne à contacter en cas d'urgence</label><input id="apUrgence">
+      <div class="btn-row"><button class="btn btn-primary" onclick="sauverDoc('autorisation')">💾 Enregistrer l'autorisation</button></div>
+      <p class="hint" id="apMaj"></p>
+    </section>
+  </div>
+</main>
+<script src="assets/app.js"></script>
+<script>
+const enfantId = new URLSearchParams(location.search).get('id');
+let ENFANT=null, SECTION=null, REUNIONS=[], PRESENCES=[];
+
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active'); document.getElementById('panel-'+t.dataset.tab).classList.add('active');
+});
+
+(async function(){
+  const me = await requireAuth(['parent','admin']); if(!me) return;
+  await renderHeader(''); renderFooter();
+  await charger();
+})();
+
+async function charger(){
+  try{
+    const d = await api('enfants/detail?id='+encodeURIComponent(enfantId));
+    ENFANT = d.enfant; SECTION = d.section;
+    document.getElementById('filNom').textContent = `${ENFANT.prenom} ${ENFANT.nom}`;
+    document.getElementById('enteteEnfant').innerHTML = `
+      <div class="enfant-avatar" style="background:${SECTION?SECTION.couleur:'#999'};width:64px;height:64px;font-size:1.6rem">${esc(ENFANT.prenom[0].toUpperCase())}</div>
+      <div><h2 style="margin:0">${esc(ENFANT.prenom)} ${esc(ENFANT.nom)}</h2>
+      <p class="hint" style="margin:2px 0 0">${SECTION? SECTION.emoji+' '+esc(SECTION.nom)+' • ' : ''}${age(ENFANT.naissance)} ans
+      ${ENFANT.allergies?' • ⚠️ Allergies : '+esc(ENFANT.allergies):''}</p></div>`;
+
+    const r = await api('reunions?sectionId='+encodeURIComponent(ENFANT.sectionId||''));
+    REUNIONS = r.reunions; PRESENCES = d.presences;
+    renderCalendrier();
+
+    document.getElementById('chefs').innerHTML = d.chefs.length ? `
+      <div class="grid grid-3">${d.chefs.map(c=>`
+        <div class="card" style="margin:0;text-align:center">
+          <div class="enfant-avatar" style="background:${SECTION?SECTION.couleur:'#999'};margin:0 auto 10px">${esc((c.prenom[0]+c.nom[0]).toUpperCase())}</div>
+          <h3 style="margin:0">${esc(c.prenom)} ${esc(c.nom)}</h3>
+          ${c.totem?`<p class="hint">« ${esc(c.totem)} »</p>`:''}
+          <p><a href="tel:${esc(c.tel)}" class="chip">📞 ${esc(c.tel||'—')}</a></p>
+        </div>`).join('')}</div>`
+      : '<div class="empty">Les chefs de cette section seront communiqués prochainement.</div>';
+
+    // fiche sante / autorisation
+    const fs = ENFANT.documents?.ficheSante || {};
+    fsGroupe.value=fs.groupe||''; fsMedecin.value=fs.medecin||''; fsAllergies.value=fs.allergies||ENFANT.allergies||''; fsRemarques.value=fs.remarques||ENFANT.remarquesMedicales||'';
+    if(fs.updatedAt) document.getElementById('fsMaj').textContent='Dernière mise à jour : '+fmtDateCourt(fs.updatedAt.slice(0,10));
+    const ap = ENFANT.documents?.autorisation || {};
+    apPhoto.checked = ap.photo ?? ENFANT.photoAutorisee ?? false; apSecours.checked = ap.secours ?? false; apUrgence.value = ap.urgence||'';
+    if(ap.updatedAt) document.getElementById('apMaj').textContent='Dernière mise à jour : '+fmtDateCourt(ap.updatedAt.slice(0,10));
+
+    await chargerQuestions();
+  }catch(e){ document.getElementById('enteteEnfant').innerHTML = `<div class="alert alert-err">${esc(e.message)}</div>`; }
+}
+
+function renderCalendrier(){
+  const today = new Date().toISOString().slice(0,10);
+  const el = document.getElementById('calendrier');
+  if(!REUNIONS.length){ el.innerHTML = '<div class="empty">Aucune réunion programmée.</div>'; return; }
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>Date</th><th>Événement</th><th>Horaire</th><th style="min-width:280px">Présence</th></tr></thead>
+    <tbody>${[...REUNIONS].sort((a,b)=>a.date.localeCompare(b.date)).map(r=>{
+      const p = PRESENCES.find(x=>x.reunionId===r.id);
+      const passe = r.date < today;
+      const st = p?p.statut:null;
+      const btn=(val,lab,cls)=>`<button class="btn ${st===val?cls:'btn-ghost'} btn-sm" ${passe?'disabled':''}
+        onclick="pointer('${r.id}','${val}')">${lab}</button>`;
+      return `<tr>
+        <td><strong>${fmtDate(r.date)}</strong>${r.dateFin?`<div class="hint">→ ${fmtDateCourt(r.dateFin)}</div>`:''}</td>
+        <td>${TYPE_LABEL[r.type]||r.type} <strong>${esc(r.titre)}</strong>${r.description?`<div class="hint">${esc(r.description)}</div>`:''}</td>
+        <td>${esc(r.heureDebut||'')}–${esc(r.heureFin||'')}<div class="hint">${esc(r.lieu||'')}</div></td>
+        <td>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">${btn('present','✔ Présent','btn-primary')}${btn('absent','✘ Absent','btn-danger')}${btn('retard','🕐 Retard','btn-jaune')}</div>
+          ${st==='retard' && p.motifRetard? `<div class="hint">Motif : ${esc(p.motifRetard)}</div>`:''}
+          ${passe?'<div class="hint">Réunion passée — réponse verrouillée</div>':''}
+        </td></tr>`;
+    }).join('')}</tbody></table></div>`;
+}
+async function pointer(reunionId, statut){
+  let motifRetard = '';
+  if(statut==='retard') motifRetard = prompt('Motif du retard (facultatif) :','') || '';
+  try{
+    const r = await api('presences',{method:'POST',body:{enfantId,reunionId,statut,motifRetard}});
+    const i = PRESENCES.findIndex(p=>p.reunionId===reunionId);
+    if(i>=0) PRESENCES[i]=r; else PRESENCES.push(r);
+    toast('Présence enregistrée ✔'); renderCalendrier();
+  }catch(e){ toast(e.message,true); }
+}
+
+async function sauverDoc(type){
+  let champs;
+  if(type==='ficheSante') champs = { groupe: fsGroupe.value, medecin: fsMedecin.value, allergies: fsAllergies.value, remarques: fsRemarques.value };
+  else champs = { photo: apPhoto.checked, secours: apSecours.checked, urgence: apUrgence.value };
+  try{ await api('enfants/document',{method:'POST',body:{enfantId,type,champs}}); toast('Document enregistré ✔'); }
+  catch(e){ toast(e.message,true); }
+}
+
+async function chargerQuestions(){
+  try{
+    const { questions } = await api('questions/mes');
+    const mine = questions.filter(q=>q.enfantId===enfantId);
+    document.getElementById('qHistorique').innerHTML = mine.length ? mine.map(q=>`
+      <div class="notif-item ${q.statut==='ouverte'?'non-lue':''}">
+        <div class="ico-notif">${q.categorie==='section'?'🎯':'🏛️'}</div>
+        <div style="flex:1"><strong>${q.categorie==='section'?'Question de section':'Question générale'}</strong>
+          <p style="margin:4px 0">${esc(q.texte)}</p>
+          <p class="hint">${fmtDateCourt(q.date.slice(0,10))} — ${q.statut==='ouverte'?'en attente de réponse':'répondue'}</p>
+          ${q.reponses.map(rp=>`<div class="alert alert-ok" style="margin:6px 0 0"><strong>Réponse :</strong> ${esc(rp.texte)}</div>`).join('')}
+        </div></div>`).join('') : '<div class="empty">Aucune question posée pour le moment.</div>';
+  }catch(e){}
+}
+async function poser(){
+  const categorie = document.getElementById('qCategorie').value;
+  const texte = document.getElementById('qTexte').value.trim();
+  if(!texte) return toast('Merci de rédiger votre question',true);
+  try{
+    await api('questions',{method:'POST',body:{enfantId, categorie, sectionId: ENFANT.sectionId, texte}});
+    document.getElementById('qTexte').value='';
+    document.getElementById('qMsg').innerHTML = '<div class="alert alert-ok">✅ Question envoyée !</div>';
+    await chargerQuestions();
+  }catch(e){ document.getElementById('qMsg').innerHTML = `<div class="alert alert-err">${esc(e.message)}</div>`; }
+}
+</script>
+</body>
+</html>

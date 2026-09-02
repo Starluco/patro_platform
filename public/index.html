@@ -14,132 +14,101 @@
   <span class="badge-jaune">Mouvement de jeunesse • 1460 Ittre</span>
   <h1>Bienvenue sur le site du Patro d'Ittre</h1>
   <p>Vous trouverez ici toutes les informations utiles sur le déroulement de nos activités.</p>
-  <div class="btn-row" style="justify-content:center;margin-top:22px">
-    <a href="parents.html" class="btn btn-jaune">👨‍👩‍👧 Inscrire mon enfant</a>
-    <a href="mailto:pndi@patro.be" class="btn btn-ghost">📧 pndi@patro.be</a>
-  </div>
+  <div class="btn-row" id="heroActions" style="justify-content:center;margin-top:22px"></div>
 </header>
 
 <main class="container">
 
-  <div class="grid grid-2">
-    <section class="card card-accent">
-      <h2>🌳 Qui sommes-nous ?</h2>
-      <p>Le <strong>Patro Notre-Dame d'Ittre</strong> est un mouvement de jeunesse qui accueille les enfants
-      et les jeunes de <strong>4 à 18 ans et plus</strong>. Chaque samedi, une équipe d'animateurs bénévoles
-      (le « Staff ») propose des jeux, des grands jeux, des bricolages, des projets et des services,
-      dans un esprit de <strong>respect, d'amitié et de débrouillardise</strong>.</p>
-      <p>Pour nous contacter par mail : <a href="mailto:pndi@patro.be"><strong>pndi@patro.be</strong></a>.<br>
-      Nous répondrons volontiers à vos questions et/ou demandes d'informations.</p>
-    </section>
-
-    <section class="card">
-      <h2>📌 Quelques informations</h2>
-      <ul class="list-clean">
-        <li><span>🗓️</span><div>Les réunions se déroulent <strong>tous les samedis de 14h00 à 17h00</strong>.</div></li>
-        <li><span>📍</span><div>Le rendez-vous se fait sur le <strong>parking en face du « Deli-traiteur »</strong>,
-            endroit où se trouvent nos locaux.</div></li>
-        <li><span>🤝</span><div>Les enfants peuvent venir <strong>essayer une réunion</strong> pour voir comment cela se
-            déroule. Si cela leur a plu, ils reçoivent alors une <strong>fiche d'inscription</strong> et l'ensemble
-            des informations pour l'année. La fiche d'inscription est également disponible
-            <a href="parents.html">ici</a>.</div></li>
-        <li><span>⛺</span><div>Le camp se déroule chaque année aux mêmes dates,
-            <strong>du 1<sup>er</sup> au 10 août</strong>.</div></li>
-      </ul>
-      <div class="alert alert-info" style="margin-bottom:0">
-        En espérant voir vos enfants prochainement parmi nous,<br><strong>Le Staff du Patro Notre-Dame d'Ittre</strong>
-      </div>
-    </section>
+  <div id="zonePriveeConnectee" style="display:none">
+    <h2 class="page-title"><span class="ico">👋</span> <span id="titreBienvenue"></span></h2>
+    <p class="page-sub">Accédez rapidement à votre espace personnel.</p>
+    <div class="grid grid-3" style="margin-bottom:36px" id="raccourcisConnecte"></div>
   </div>
 
-  <h2 class="page-title" style="margin-top:36px"><span class="ico">🎯</span> Nos sections</h2>
-  <p class="page-sub">Chaque enfant rejoint une section adaptée à son âge, encadrée par ses propres chefs.</p>
-  <div id="sections" class="grid grid-3"><div class="loader"></div></div>
-
-  <h2 class="page-title" style="margin-top:40px"><span class="ico">📣</span> Actualités &amp; informations</h2>
-  <div id="infos" class="grid grid-2"><div class="loader"></div></div>
-
-  <h2 class="page-title" style="margin-top:40px"><span class="ico">🗓️</span> Prochaines dates</h2>
-  <div class="card"><div id="agenda"><div class="loader"></div></div></div>
-
-  <h2 class="page-title" style="margin-top:40px"><span class="ico">🚀</span> Accès rapide</h2>
+  <h2 class="page-title" style="margin-top:10px"><span class="ico">✨</span> Découvrir le Patro</h2>
+  <p class="page-sub">Cliquez sur une bulle pour en savoir plus.</p>
   <div class="grid grid-4">
-    <a class="card" style="text-decoration:none;text-align:center" href="parents.html">
-      <div style="font-size:2.2rem">👨‍👩‍👧</div><h3>Espace parents</h3>
-      <p style="color:var(--gris);font-size:.88rem">Inscription, section, chefs, calendrier, coordonnées</p></a>
-    <a class="card" style="text-decoration:none;text-align:center" href="presences.html">
-      <div style="font-size:2.2rem">✅</div><h3>Présences</h3>
-      <p style="color:var(--gris);font-size:.88rem">Indiquez si votre enfant sera présent à la réunion</p></a>
-    <a class="card" style="text-decoration:none;text-align:center" href="gestion.html">
-      <div style="font-size:2.2rem">⚙️</div><h3>Gestion</h3>
-      <p style="color:var(--gris);font-size:.88rem">Réservé au président &amp; au staff</p></a>
-    <a class="card" style="text-decoration:none;text-align:center" href="communication.html">
-      <div style="font-size:2.2rem">✉️</div><h3>Communication</h3>
-      <p style="color:var(--gris);font-size:.88rem">Envoi d'e-mails aux parents</p></a>
+    <a class="bulle" href="https://www.youtube.com/@patronotre-damedittrepndi1159" target="_blank" rel="noopener">
+      <span class="emoji-big">🎥</span>
+      <h3>C'est quoi un camp Patro ?</h3>
+      <p>Découvrez notre chaîne YouTube</p>
+    </a>
+    <a class="bulle" href="patro.html">
+      <span class="emoji-big">❓</span>
+      <h3>C'est quoi le Patro ?</h3>
+      <p>Fonctionnement, valeurs, organisation</p>
+    </a>
+    <a class="bulle" href="animateurs.html">
+      <span class="emoji-big">🧑‍🏫</span>
+      <h3>Qui sont les animateurs ?</h3>
+      <p>Par section, avec leurs coordonnées</p>
+    </a>
+    <a class="bulle" href="histoire.html">
+      <span class="emoji-big">📜</span>
+      <h3>Histoire</h3>
+      <p>La ligne du temps du Patro d'Ittre</p>
+    </a>
+    <a class="bulle" href="infos.html">
+      <span class="emoji-big">📌</span>
+      <h3>Infos importantes</h3>
+      <p>Horaires, lieu, camp...</p>
+    </a>
+    <a class="bulle" href="inscription.html" id="bulleInscription">
+      <span class="emoji-big">📝</span>
+      <h3>Inscrire mon enfant</h3>
+      <p>Créer une demande de compte parent</p>
+    </a>
+  </div>
+
+  <div id="zonePubliqueSeule">
+    <h2 class="page-title" style="margin-top:40px"><span class="ico">🎯</span> Nos sections</h2>
+    <p class="page-sub">Chaque enfant rejoint une section adaptée à son âge.</p>
+    <div id="sections" class="grid grid-3"><div class="loader"></div></div>
   </div>
 
 </main>
 
 <script src="assets/app.js"></script>
 <script>
-renderNav('index.html');
-renderFooter();
-
 (async function init(){
-  try{
-    const { sections } = await api('sections');
-    document.getElementById('sections').innerHTML = sections.map(s => `
-      <article class="section-card">
-        <div class="head" style="background:${s.couleur}">
-          <span class="emoji">${s.emoji||'🎈'}</span>
-          <span>${esc(s.nom)}<br><small style="font-weight:500;opacity:.95">${esc(s.tranche)}</small></span>
-        </div>
-        <div class="body">
-          <p style="font-size:.9rem;color:var(--gris)">${esc(s.description||'')}</p>
-          <div class="divider"></div>
-          <strong style="font-size:.82rem;text-transform:uppercase;color:var(--vert-fonce)">Chefs de section</strong>
-          <div style="margin-top:8px">
-            ${s.chefs.length
-              ? s.chefs.map(c=>`<span class="chip">👤 ${esc(c.prenom)} ${esc(c.nom)}${c.totem?' « '+esc(c.totem)+' »':''}</span>`).join('')
-              : '<span class="badge badge-neutre">À compléter</span>'}
+  await renderHeader('index.html');
+  renderFooter();
+
+  const c = session.compte;
+  if (c && session.token) {
+    document.getElementById('zonePriveeConnectee').style.display = 'block';
+    document.getElementById('zonePubliqueSeule').style.display = 'none';
+    document.getElementById('bulleInscription').style.display = 'none';
+    document.getElementById('titreBienvenue').textContent = `Bonjour ${c.prenom} !`;
+    document.getElementById('heroActions').innerHTML = `
+      <a href="${c.role==='admin'?'admin.html':c.role==='animateur'?'animateur.html':'mes-enfants.html'}" class="btn btn-jaune">
+        ${c.role==='admin'?'⚙️ Espace administrateur':c.role==='animateur'?'🧑‍🏫 Mon espace animateur':'👧 Mes enfants'}</a>
+      <a href="profil.html" class="btn btn-ghost" style="border-color:#fff;color:#fff">👤 Mon profil</a>`;
+    const raccourcis = c.role === 'admin'
+      ? [['admin.html#inscriptions','📋','Inscriptions en attente'],['admin.html#enfants','👧','Tous les enfants'],['admin.html#stats','📊','Statistiques']]
+      : c.role === 'animateur'
+      ? [['animateur.html#calendrier','🗓️','Calendrier de ma section'],['animateur.html#presences','✅','Présences'],['animateur.html#notifications','✉️','Questions des parents']]
+      : [['mes-enfants.html','👧','Mes enfants'],['profil.html#paiements','💳','Paiements'],['profil.html#documents','📄','Documents']];
+    document.getElementById('raccourcisConnecte').innerHTML = raccourcis.map(([href,ico,label])=>`
+      <a href="${href}" class="card card-clickable" style="text-align:center">
+        <div style="font-size:2rem">${ico}</div><h3 style="margin:8px 0 0">${label}</h3></a>`).join('');
+  } else {
+    document.getElementById('heroActions').innerHTML = `
+      <a href="inscription.html" class="btn btn-jaune">📝 Inscrire mon enfant</a>
+      <a href="connexion.html" class="btn btn-ghost" style="border-color:#fff;color:#fff">🔑 J'ai déjà un compte</a>
+      <a href="mailto:pndi@patro.be" class="btn btn-ghost" style="border-color:#fff;color:#fff">📧 pndi@patro.be</a>`;
+    try{
+      const { sections } = await api('sections');
+      document.getElementById('sections').innerHTML = sections.map(s => `
+        <article class="section-card">
+          <div class="head" style="background:${s.couleur}">
+            <span class="emoji">${s.emoji||'🎈'}</span>
+            <span>${esc(s.nom)}<br><small style="font-weight:500;opacity:.95">${esc(s.tranche)}</small></span>
           </div>
-        </div>
-      </article>`).join('');
-  }catch(e){
-    document.getElementById('sections').innerHTML =
-      `<div class="alert alert-err">Impossible de charger les sections : ${esc(e.message)}</div>`;
+          <div class="body"><p class="hint" style="margin:0">Section encadrée par une équipe d'animateurs dédiée.</p></div>
+        </article>`).join('');
+    }catch(e){ document.getElementById('sections').innerHTML = `<div class="alert alert-err">Impossible de charger les sections.</div>`; }
   }
-
-  try{
-    const { infos } = await api('infos');
-    document.getElementById('infos').innerHTML = infos.length ? infos.map(i=>`
-      <div class="card ${i.important?'card-accent':''}" style="margin:0">
-        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
-          <h3 style="margin:0">${esc(i.titre)}</h3>
-          ${i.important?'<span class="badge badge-jaune">Important</span>':''}
-        </div>
-        <p class="hint">${fmtDate(i.date)}</p>
-        <p style="white-space:pre-wrap;margin-bottom:0">${esc(i.texte)}</p>
-      </div>`).join('')
-      : '<div class="empty"><span class="big">📭</span>Aucune actualité pour le moment.</div>';
-  }catch(e){ document.getElementById('infos').innerHTML=''; }
-
-  try{
-    const { reunions } = await api('reunions');
-    const today = new Date().toISOString().slice(0,10);
-    const next = reunions.filter(r=>r.date>=today).slice(0,8);
-    document.getElementById('agenda').innerHTML = next.length ? `
-      <div class="table-wrap"><table>
-        <thead><tr><th>Date</th><th>Activité</th><th>Horaire</th><th>Lieu</th></tr></thead>
-        <tbody>${next.map(r=>`<tr>
-          <td><strong>${fmtDate(r.date)}</strong>${r.dateFin?` → ${fmtDateCourt(r.dateFin)}`:''}</td>
-          <td>${r.type==='camp'?'⛺ ':'🎈 '}${esc(r.titre)}
-              ${r.remarques?`<div class="hint">${esc(r.remarques)}</div>`:''}</td>
-          <td>${esc(r.heureDebut)} – ${esc(r.heureFin)}</td>
-          <td>${esc(r.lieu)}</td></tr>`).join('')}
-        </tbody></table></div>`
-      : '<div class="empty"><span class="big">🗓️</span>Aucune date programmée pour l\'instant.</div>';
-  }catch(e){ document.getElementById('agenda').innerHTML=''; }
 })();
 </script>
 </body>

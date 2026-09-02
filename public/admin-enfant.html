@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fiche enfant (admin) — Patro Notre-Dame d'Ittre</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main class="container">
+  <p class="fil-ariane"><a href="index.html">🏠 Accueil</a> / <a href="admin.html#enfants">Enfants</a> / <span id="filNom"></span></p>
+  <div class="card card-accent" id="entete" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><div class="loader"></div></div>
+
+  <div class="grid grid-4" id="stats"></div>
+
+  <div class="grid grid-2">
+    <section class="card">
+      <h3>📅 Présences</h3>
+      <div id="presences"></div>
+    </section>
+    <section class="card">
+      <h3>💳 Paiements</h3>
+      <div id="paiements"></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h3>📄 Documents</h3>
+    <div id="documents"></div>
+  </section>
+
+  <section class="card card-accent">
+    <h3>✉️ Envoyer une notification personnalisée au parent</h3>
+    <label>Titre</label><input id="notifTitre" value="Message du Patro Notre-Dame d'Ittre">
+    <label>Message</label><textarea id="notifTexte" placeholder="Rédigez votre message ici..."></textarea>
+    <div class="btn-row"><button class="btn btn-primary" onclick="envoyerNotif()">🚀 Envoyer</button></div>
+    <div id="notifMsg"></div>
+  </section>
+</main>
+<script src="assets/app.js"></script>
+<script>
+const enfantId = new URLSearchParams(location.search).get('id');
+let ENFANT=null, SECTIONS=[];
+(async function(){
+  const me = await requireAuth(['admin']); if(!me) return;
+  await renderHeader(''); renderFooter();
+  const s = await api('sections'); SECTIONS = s.sections;
+  await charger();
+})();
+
+async function charger(){
+  const { enfants } = await api('admin/enfants');
+  ENFANT = enfants.find(e=>e.id===enfantId);
+  if(!ENFANT){ document.getElementById('entete').innerHTML = '<div class="alert alert-err">Enfant introuvable.</div>'; return; }
+  const section = SECTIONS.find(s=>s.id===ENFANT.sectionId);
+  document.getElementById('filNom').textContent = `${ENFANT.prenom} ${ENFANT.nom}`;
+  document.getElementById('entete').innerHTML = `
+    <div class="enfant-avatar" style="background:${section?section.couleur:'#999'};width:64px;height:64px;font-size:1.6rem">${esc(ENFANT.prenom[0].toUpperCase())}</div>
+    <div><h2 style="margin:0">${esc(ENFANT.prenom)} ${esc(ENFANT.nom)}</h2>
+    <p class="hint" style="margin:2px 0 0">${section?section.emoji+' '+esc(section.nom):'Section non définie'} • ${age(ENFANT.naissance)} ans • né(e) le ${fmtDateCourt(ENFANT.naissance)}
+    ${ENFANT.allergies?' • ⚠️ '+esc(ENFANT.allergies):''}</p></div>`;
+
+  const { presences } = await api('presences?enfantId='+enfantId);
+  const { reunions } = await api('reunions?sectionId='+encodeURIComponent(ENFANT.sectionId||''));
+  const today = new Date().toISOString().slice(0,10);
+  const passees = reunions.filter(r=>r.date<=today);
+  const present = presences.filter(p=>p.statut==='present'||p.statut==='retard').length;
+  const absent = presences.filter(p=>p.statut==='absent').length;
+  const retard = presences.filter(p=>p.statut==='retard').length;
+  const taux = passees.length ? Math.round(present/passees.length*100) : null;
+
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="val">${taux===null?'—':taux+'%'}</div><div class="lbl">Taux de présence</div></div>
+    <div class="stat"><div class="val">${present}</div><div class="lbl">Présences</div></div>
+    <div class="stat rouge"><div class="val">${absent}</div><div class="lbl">Absences</div></div>
+    <div class="stat jaune"><div class="val">${retard}</div><div class="lbl">Retards</div></div>`;
+
+  document.getElementById('presences').innerHTML = passees.length ? `
+    <div class="table-wrap"><table><thead><tr><th>Date</th><th>Réunion</th><th>Statut</th></tr></thead>
+    <tbody>${passees.sort((a,b)=>b.date.localeCompare(a.date)).slice(0,15).map(r=>{
+      const p = presences.find(x=>x.reunionId===r.id);
+      const st = p?p.statut:null;
+      return `<tr><td>${fmtDateCourt(r.date)}</td><td>${esc(r.titre)}</td>
+        <td>${st==='present'?'<span class="badge badge-ok">Présent</span>':st==='absent'?'<span class="badge badge-ko">Absent</span>':
+              st==='retard'?'<span class="badge badge-jaune">Retard</span>':'<span class="badge badge-neutre">Sans réponse</span>'}</td></tr>`;
+    }).join('')}</tbody></table></div>` : '<div class="empty">Aucune réunion passée.</div>';
+
+  document.getElementById('paiements').innerHTML = (ENFANT.paiements||[]).map(p=>`
+    <div class="paiement-ligne">
+      <div><span class="pastille ${p.paye?'pastille-verte':'pastille-rouge'}"></span><strong>${esc(p.label)}</strong> — ${p.montant} €
+      ${p.datePaiement?`<div class="hint">Payé le ${fmtDateCourt(p.datePaiement)}</div>`:''}</div>
+      <button class="btn btn-sm ${p.paye?'btn-danger':'btn-primary'}" onclick="marquerPaiement('${p.id}',${!p.paye})">
+        ${p.paye?'Marquer non payé':'Marquer payé'}</button>
+    </div>`).join('') || '<div class="empty">Aucun paiement.</div>';
+
+  const fs = ENFANT.documents?.ficheSante || {}; const ap = ENFANT.documents?.autorisation || {};
+  document.getElementById('documents').innerHTML = `
+    <div class="grid grid-2">
+      <div class="card" style="margin:0">
+        <h4>🩺 Fiche de santé</h4>
+        ${fs.updatedAt ? `<p><strong>Groupe sanguin :</strong> ${esc(fs.groupe||'—')}</p>
+          <p><strong>Médecin :</strong> ${esc(fs.medecin||'—')}</p>
+          <p><strong>Allergies :</strong> ${esc(fs.allergies||'—')}</p>
+          <p><strong>Remarques :</strong> ${esc(fs.remarques||'—')}</p>
+          <p class="hint">Mise à jour le ${fmtDateCourt(fs.updatedAt.slice(0,10))}</p>`
+        : '<div class="empty">Non complétée par le parent.</div>'}
+      </div>
+      <div class="card" style="margin:0">
+        <h4>✅ Autorisation parentale</h4>
+        ${ap.updatedAt ? `<p>Photos : ${ap.photo?'✔ Autorisées':'✘ Non autorisées'}</p>
+          <p>Premiers secours : ${ap.secours?'✔ Autorisés':'✘ Non autorisés'}</p>
+          <p>Contact urgence : ${esc(ap.urgence||'—')}</p>
+          <p class="hint">Mise à jour le ${fmtDateCourt(ap.updatedAt.slice(0,10))}</p>`
+        : '<div class="empty">Non complétée par le parent.</div>'}
+      </div>
+    </div>`;
+}
+
+async function marquerPaiement(paiementId, paye){
+  try{ await api('admin/paiements/marquer',{method:'POST',body:{enfantId,paiementId,paye}}); toast('Paiement mis à jour ✔'); await charger(); }
+  catch(e){ toast(e.message,true); }
+}
+async function envoyerNotif(){
+  const titre = document.getElementById('notifTitre').value.trim();
+  const texte = document.getElementById('notifTexte').value.trim();
+  if(!texte) return toast('Merci de rédiger un message',true);
+  try{
+    await api('admin/notifications/envoyer',{method:'POST',body:{enfantId,titre,texte}});
+    document.getElementById('notifMsg').innerHTML = '<div class="alert alert-ok">✅ Notification envoyée au parent.</div>';
+    document.getElementById('notifTexte').value='';
+  }catch(e){ document.getElementById('notifMsg').innerHTML = `<div class="alert alert-err">${esc(e.message)}</div>`; }
+}
+</script>
+</body>
+</html>

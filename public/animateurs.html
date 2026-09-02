@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nos animateurs — Patro Notre-Dame d'Ittre</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="hero hero-sm"><h1>🧑‍🏫 Qui sont les animateurs ?</h1><p>Une équipe par section, encadrée avec passion</p></header>
+<main class="container">
+  <p class="fil-ariane"><a href="index.html">🏠 Accueil</a> / Nos animateurs</p>
+  <div id="contenu"><div class="loader"></div></div>
+</main>
+<script src="assets/app.js"></script>
+<script>
+(async function(){
+  await renderHeader(''); renderFooter();
+  try{
+    const { animateurs, sections } = await api('animateurs-public');
+    document.getElementById('contenu').innerHTML = sections.map(s=>{
+      const equipe = animateurs.filter(a=>a.sectionId===s.id);
+      return `<section class="card" style="border-top:5px solid ${s.couleur}">
+        <h2>${s.emoji} ${esc(s.nom)} <small style="color:var(--gris);font-weight:500">— ${esc(s.tranche)}</small></h2>
+        ${equipe.length? `<div class="grid grid-3">${equipe.map(a=>`
+          <div class="card" style="margin:0;text-align:center">
+            <div class="enfant-avatar" style="background:${s.couleur};margin:0 auto 10px">${esc((a.prenom[0]+a.nom[0]).toUpperCase())}</div>
+            <h3 style="margin:0">${esc(a.prenom)} ${esc(a.nom)}</h3>
+            ${a.totem?`<p class="hint">Totem : « ${esc(a.totem)} »</p>`:''}
+            ${a.bio?`<p style="font-size:.88rem;color:var(--gris)">${esc(a.bio)}</p>`:''}
+          </div>`).join('')}</div>`
+        : '<div class="empty">Aucun animateur enregistré pour cette section pour le moment.</div>'}
+      </section>`;
+    }).join('');
+  }catch(e){ document.getElementById('contenu').innerHTML = '<div class="alert alert-err">Impossible de charger les animateurs.</div>'; }
+})();
+</script>
+</body>
+</html>

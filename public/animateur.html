@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Espace animateur — Patro Notre-Dame d'Ittre</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main class="container">
+  <h1 class="page-title"><span class="ico">🧑‍🏫</span> Espace animateur</h1>
+  <div class="card card-accent" id="entete"><div class="loader"></div></div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="calendrier">🗓️ Calendrier</button>
+    <button class="tab" data-tab="presences">✅ Présences</button>
+    <button class="tab" data-tab="notifications">✉️ Questions des parents</button>
+  </div>
+
+  <div class="tab-panel active" id="panel-calendrier">
+    <section class="card card-accent">
+      <h3 id="formTitre">➕ Ajouter une réunion / activité pour ma section</h3>
+      <input type="hidden" id="reId">
+      <div class="row">
+        <div><label>Titre *</label><input id="reTitre" placeholder="Réunion hebdomadaire"></div>
+        <div><label>Type</label><select id="reType">
+          <option value="reunion">Réunion</option><option value="souper">Souper</option>
+          <option value="journee">Journée spéciale</option><option value="camp">Camp</option>
+        </select></div>
+      </div>
+      <div class="row">
+        <div><label>Date *</label><input type="date" id="reDate"></div>
+        <div><label>Date de fin (facultatif)</label><input type="date" id="reDateFin"></div>
+        <div><label>Début</label><input id="reDebut" value="14:00"></div>
+        <div><label>Fin</label><input id="reFin" value="17:00"></div>
+      </div>
+      <label>Lieu</label><input id="reLieu" value="Parking en face du Deli-traiteur, Ittre">
+      <label>Description</label><textarea id="reDescription"></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveReunion()">💾 Enregistrer</button>
+        <button class="btn btn-ghost" onclick="resetForm()">Annuler</button>
+      </div>
+    </section>
+    <section class="card"><h3>Calendrier de ma section</h3><div id="listeReunions"></div></section>
+  </div>
+
+  <div class="tab-panel" id="panel-presences">
+    <section class="card"><h3>✅ Tableau des présences</h3><div id="tablPresences"><div class="loader"></div></div></section>
+  </div>
+
+  <div class="tab-panel" id="panel-notifications">
+    <section class="card"><h3>❓ Questions de ma section</h3><div id="questions"></div></section>
+  </div>
+</main>
+<script src="assets/app.js"></script>
+<script>
+let COMPTE=null, REUNIONS=[];
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active'); document.getElementById('panel-'+t.dataset.tab).classList.add('active');
+  history.replaceState(null,'','#'+t.dataset.tab);
+});
+
+(async function(){
+  const me = await requireAuth(['animateur']); if(!me) return;
+  await renderHeader('animateur.html'); renderFooter();
+  COMPTE = me.compte;
+  const { sections } = await api('sections');
+  const s = sections.find(x=>x.id===COMPTE.sectionId);
+  document.getElementById('entete').innerHTML = `
+    <div class="enfant-avatar" style="background:${s?s.couleur:'#999'}">${s?s.emoji:'❓'}</div>
+    <div><h2 style="margin:0">${esc(me.label)}</h2>
+    <p class="hint" style="margin:4px 0 0">Section : <strong>${s?esc(s.nom):'—'}</strong> (${s?esc(s.tranche):''})</p></div>`;
+  await chargerReunions();
+  await chargerPresences();
+  await chargerQuestions();
+  const hash = location.hash.replace('#',''); if(hash) document.querySelector(`.tab[data-tab="${hash}"]`)?.click();
+})();
+
+async function chargerReunions(){
+  const r = await api('reunions?sectionId='+encodeURIComponent(COMPTE.sectionId));
+  REUNIONS = r.reunions.sort((a,b)=>a.date.localeCompare(b.date));
+  document.getElementById('listeReunions').innerHTML = REUNIONS.length ? `
+    <div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>Titre</th><th>Type</th><th>Horaire</th><th></th></tr></thead>
+      <tbody>${REUNIONS.map(r=>`<tr>
+        <td>${fmtDateCourt(r.date)}${r.dateFin?`<div class="hint">→ ${fmtDateCourt(r.dateFin)}</div>`:''}</td>
+        <td><strong>${esc(r.titre)}</strong>${r.description?`<div class="hint">${esc(r.description)}</div>`:''}</td>
+        <td>${TYPE_LABEL[r.type]||r.type}</td>
+        <td>${esc(r.heureDebut||'')}–${esc(r.heureFin||'')}<div class="hint">${esc(r.lieu||'')}</div></td>
+        <td><button class="btn btn-ghost btn-sm" onclick="editReunion('${r.id}')">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="delReunion('${r.id}')">🗑️</button></td>
+      </tr>`).join('')}</tbody></table></div>` : '<div class="empty">Aucune réunion programmée pour ma section.</div>';
+}
+function editReunion(id){
+  const r = REUNIONS.find(x=>x.id===id);
+  reId.value=r.id; reTitre.value=r.titre; reType.value=r.type; reDate.value=r.date; reDateFin.value=r.dateFin||'';
+  reDebut.value=r.heureDebut||''; reFin.value=r.heureFin||''; reLieu.value=r.lieu||''; reDescription.value=r.description||'';
+  document.getElementById('formTitre').textContent='✏️ Modifier la réunion'; document.getElementById('formTitre').scrollIntoView({behavior:'smooth'});
+}
+function resetForm(){
+  ['reId','reTitre','reDate','reDateFin','reDescription'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('formTitre').textContent='➕ Ajouter une réunion / activité pour ma section';
+}
+async function saveReunion(){
+  const reunion = { id: reId.value||undefined, titre: v('reTitre'), type: reType.value, date: v('reDate'),
+    dateFin: v('reDateFin')||null, heureDebut: v('reDebut'), heureFin: v('reFin'), lieu: v('reLieu'), description: reDescription.value.trim() };
+  if(!reunion.titre||!reunion.date) return toast('Titre et date requis',true);
+  try{ await api('reunions',{method:'POST',body:{reunion}}); toast('Réunion enregistrée ✔'); resetForm(); await chargerReunions(); await chargerPresences(); }
+  catch(e){ toast(e.message,true); }
+}
+async function delReunion(id){
+  if(!confirm('Supprimer cette réunion ?')) return;
+  await api('reunions/delete',{method:'POST',body:{id}}); toast('Supprimée'); await chargerReunions(); await chargerPresences();
+}
+
+async function chargerPresences(){
+  const { agregat } = await api('presences/agregat?sectionId='+encodeURIComponent(COMPTE.sectionId));
+  document.getElementById('tablPresences').innerHTML = agregat.length ? `
+    <div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>Réunion</th><th>✔ Présents</th><th>✘ Absents</th><th>🕐 Retards</th><th>Sans réponse</th><th></th></tr></thead>
+      <tbody>${agregat.map(a=>`<tr>
+        <td>${fmtDateCourt(a.reunion.date)}</td><td>${esc(a.reunion.titre)}</td>
+        <td><span class="badge badge-ok">${a.present}</span></td>
+        <td><span class="badge badge-ko">${a.absent}</span></td>
+        <td><span class="badge badge-jaune">${a.retard}</span></td>
+        <td><span class="badge badge-neutre">${a.sansReponse}</span></td>
+        <td class="hint">${a.totalEnfants} enfant(s)</td>
+      </tr>`).join('')}</tbody></table></div>` : '<div class="empty">Aucune donnée de présence.</div>';
+}
+
+async function chargerQuestions(){
+  const { questions } = await api('questions/section');
+  document.getElementById('questions').innerHTML = questions.length ? questions.map(q=>`
+    <div class="notif-item ${q.statut==='ouverte'?'non-lue':''}">
+      <div class="ico-notif">❓</div>
+      <div style="flex:1">
+        <strong>${esc(q.auteurNom)}</strong>${q.enfantNom?` (parent de ${esc(q.enfantNom)})`:''}
+        <p style="margin:4px 0">${esc(q.texte)}</p>
+        <p class="hint">${fmtDateCourt(q.date.slice(0,10))} — ${q.statut==='ouverte'?'en attente de réponse':'répondue'}</p>
+        ${q.reponses.map(r=>`<div class="alert alert-ok" style="margin:6px 0">Réponse : ${esc(r.texte)}</div>`).join('')}
+        ${q.statut==='ouverte'?`<div style="margin-top:8px"><textarea id="rep-${q.id}" placeholder="Votre réponse..." style="min-height:70px"></textarea>
+          <button class="btn btn-primary btn-sm" style="margin-top:6px" onclick="repondre('${q.id}')">Répondre</button></div>`:''}
+      </div></div>`).join('') : '<div class="empty">Aucune question pour ma section.</div>';
+}
+async function repondre(id){
+  const texte = document.getElementById('rep-'+id).value.trim();
+  if(!texte) return toast('Merci de rédiger une réponse',true);
+  try{ await api('questions/repondre',{method:'POST',body:{questionId:id,texte}}); toast('Réponse envoyée ✔'); await chargerQuestions(); }
+  catch(e){ toast(e.message,true); }
+}
+function v(id){ return document.getElementById(id).value.trim(); }
+</script>
+</body>
+</html>

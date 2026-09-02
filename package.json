@@ -1,8 +1,8 @@
 {
   "name": "patro-notre-dame-ittre",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "private": true,
-  "description": "Application de gestion du Patro Notre-Dame d'Ittre",
+  "description": "Application de gestion du Patro Notre-Dame d'Ittre (comptes parents / animateurs / administrateurs)",
   "type": "module",
   "scripts": {
     "dev": "netlify dev",
