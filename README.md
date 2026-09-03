@@ -1,74 +1,86 @@
-# 🌳 Patro Notre-Dame d'Ittre — Application de gestion (v2.0.1)
+# 🌳 Patro Notre-Dame d'Ittre — v2.1.0
 
-Application multi-comptes (Parent / Animateur / Administrateur) avec base de données
-**Netlify Blobs**, déployable directement sur Netlify (site statique + 1 fonction API).
+## 🐛 Correctifs de cette version
 
-## 🆘 Vous ne pouvez pas vous connecter avec les comptes de démo ?
+### 1. Bug de déconnexion automatique — CORRIGÉ
+**Cause** : Netlify Blobs utilise par défaut une cohérence *éventuelle* (jusqu'à 60s de
+délai de propagation entre une écriture et sa lecture). Lors de la connexion, la session
+était écrite dans la base, mais la page suivante pouvait la relire *avant* que l'écriture
+soit propagée → `auth/me` renvoyait 401 → déconnexion immédiate.
 
-C'est normal si votre base de données existait déjà avant cette mise à jour (v1 → v2) :
-l'ancienne structure ne contenait pas de comptes avec mot de passe.
+**Correctif appliqué (`netlify/functions/api.mjs`)** :
+- Toutes les lectures/écritures du blob utilisent désormais `consistency: 'strong'`
+  (cohérence forte, lecture-après-écriture garantie — recommandation officielle Netlify).
+- Côté front (`app.js`), `requireAuth()` et `renderHeader()` ne déconnectent plus
+  l'utilisateur sur une erreur réseau transitoire : seule une réponse **401 explicite**
+  du serveur entraîne une déconnexion. Une erreur passagère déclenche une nouvelle tentative.
 
-**Solution en 1 clic :** allez sur `connexion.html`. Un bandeau jaune apparaît automatiquement
-si aucun compte n'existe encore, avec un bouton **« Initialiser les comptes de démonstration »**.
-Cliquez dessus, puis connectez-vous normalement.
+### 2. Comptes de démonstration supprimés
+Seul un compte administrateur est désormais créé automatiquement :
+- **E-mail :** `admin@patro.be`
+- **Mot de passe :** `Ster2014`
 
-> 🔒 Cette route (`/api/system/init-demo`) est protégée : elle ne fonctionne QUE si la base est
-> vide de tout compte. Dès qu'un compte existe (même un seul), elle est automatiquement désactivée.
+Les comptes **parents** et **animateurs** ne sont plus créés par défaut : ils sont
+créés exclusivement par l'administrateur depuis l'onglet **« ➕ Créer un compte »**
+du portail admin (`admin.html`).
 
-## 🔑 Comptes de démonstration
+> Le formulaire public d'inscription (`inscription.html`) reste disponible pour les
+> parents qui souhaitent faire une demande eux-mêmes (elle devra être validée par
+> l'admin), mais l'admin peut désormais aussi créer un compte **directement, déjà validé**,
+> sans passer par cette étape.
+
+### 3. Correctif de layout sur la page d'accueil
+Le bandeau vert (« hero ») avait un décor décoratif (vague blanche) en `position:absolute`
+qui, sans z-index explicite, se plaçait **au-dessus** du contenu du hero (titre, texte,
+boutons de connexion) et les recouvrait partiellement.
+
+**Correctif (`style.css`)** : le décor est maintenant explicitement en arrière-plan
+(`z-index:0`, `pointer-events:none`), et tout le contenu du hero passe au premier plan
+(`z-index:1`). La section « Découvrir le Patro » a également été descendue (marge
+supérieure augmentée) pour plus de clarté visuelle.
+
+## 🔑 Connexion
 
 | Rôle | E-mail | Mot de passe |
 |---|---|---|
-| Administrateur | `admin@patro.be` | `admin123` |
-| Animateur (Bengalis) | `camille.dubois@patro-ittre.be` | `animateur123` |
-| Parent | `marie.durand@example.com` | `parent123` |
-| Parent | `olivier.peeters@example.com` | `parent123` |
+| Administrateur | `admin@patro.be` | `Ster2014` |
 
-## 🧩 Zones du site
-
-### Publiques (sans connexion)
-`index.html`, `patro.html`, `animateurs.html`, `histoire.html`/`histoire-detail.html`, `infos.html`, `connexion.html`, `inscription.html`.
-
-### Privées — Parent
-`mes-enfants.html`, `enfant.html?id=...`, `profil.html`.
-
-### Privées — Animateur
-`animateur.html`.
-
-### Privées — Administrateur
-`admin.html`, `admin-enfant.html?id=...`.
-
-## 🗄️ Base de données (Netlify Blobs)
-
-Store `patro-db`, clé `database`. Collections : `sections`, `comptes`, `enfants`,
-`reunions`, `presences`, `notifications`, `questions`, `taches`, `sessions`, `contenu`.
-
-Toute la logique est dans **une seule fonction** : `netlify/functions/api.mjs`,
-routée via `config.path = "/api/*"` (⚠️ ne jamais ajouter de `[[redirects]]` vers
-`/.netlify/functions/api` dans `netlify.toml`).
-
-### Authentification
-Token simple stocké dans `db.sessions`, envoyé dans l'en-tête `x-auth-token`.
-Mots de passe hachés en `sha256(salt + password)`.
+**Pensez à changer ce mot de passe** dès votre première connexion si possible
+(via une future fonctionnalité, ou en le modifiant manuellement dans la base).
 
 ## 🚀 Déploiement
 
 ```bash
 git add .
-git commit -m "v2.0.1 : correctif connexion + comptes multi-roles"
+git commit -m "v2.1.0 : correctif connexion (Blobs strong consistency) + comptes admin uniquement + fix layout hero"
 git push
 ```
 
-Netlify redéploie automatiquement. Après le déploiement, allez sur `/connexion.html`
-et cliquez sur le bouton d'initialisation si le bandeau apparaît.
+Netlify redéploie automatiquement.
 
-## ✅ Contenus à fournir par l'administrateur
+⚠️ **Important** : comme la structure de la base change (suppression des comptes démo),
+si votre base Netlify Blobs existante contient encore l'ancienne structure, il est
+recommandé de la réinitialiser proprement. Le code s'auto-répare partiellement (il
+garantit toujours la présence d'un compte admin), mais pour un démarrage totalement
+propre, vous pouvez supprimer le blob `patro-db` depuis le dashboard Netlify
+(Site → Blobs) avant le premier déploiement de cette version.
 
-Tout est éditable depuis `admin.html` → onglets **« Animateurs »** et **« Contenu du site »**.
+## 🗄️ Base de données (Netlify Blobs)
 
-## 🎨 Charte graphique
-Vert (`#1B5E20`, `#2E7D32`, `#7BC043`) et jaune (`#F9C80E`).
+Store `patro-db`, clé `database`, cohérence **forte** (`strong`). Collections :
+`sections`, `comptes`, `enfants`, `reunions`, `presences`, `notifications`,
+`questions`, `taches`, `sessions`, `contenu`.
 
-## 🔧 Limitations connues
-- Pas d'envoi de vrais e-mails (uniquement des notifications internes au site).
-- Pas d'upload de fichiers binaires (fiche de santé/autorisation = formulaires texte).
+Routage via `config.path = '/api/*'` dans `netlify/functions/api.mjs`
+(ne jamais ajouter de `[[redirects]]` vers `/.netlify/functions/api`).
+
+## 🧩 Pages
+
+Publiques : `index.html`, `patro.html`, `animateurs.html`, `histoire.html`/`histoire-detail.html`,
+`infos.html`, `connexion.html`, `inscription.html`.
+
+Privées Parent : `mes-enfants.html`, `enfant.html?id=...`, `profil.html`.
+
+Privées Animateur : `animateur.html`.
+
+Privées Admin : `admin.html` (dont le nouvel onglet **Créer un compte**), `admin-enfant.html?id=...`.

@@ -1,5 +1,5 @@
 /* =====================================================================
-   Utilitaires communs — Patro Notre-Dame d'Ittre (v2, comptes multi-roles)
+   Utilitaires communs — Patro Notre-Dame d'Ittre (v2.1)
    ===================================================================== */
 const API = '/api';
 
@@ -55,6 +55,11 @@ function initialesOf(){
   return ((c.prenom||' ')[0]+(c.nom||' ')[0]).toUpperCase();
 }
 
+// IMPORTANT (correctif bug de deconnexion) : cette fonction NE DOIT PLUS
+// effacer la session locale sur un simple echec reseau/timing transitoire.
+// On ne "clear()" desormais QUE si le serveur repond explicitement 401
+// (session invalide/expiree cote serveur). Toute autre erreur (reseau,
+// 500 passager) laisse la session locale intacte : on reessaiera plus tard.
 async function renderHeader(current) {
   const c = session.compte;
   let nbNotif = 0;
@@ -66,7 +71,12 @@ async function renderHeader(current) {
       nbNotif = me.nbNotificationsNonLues || 0;
       navItems = me.compte.role === 'admin' ? NAV_ADMIN : me.compte.role === 'animateur' ? NAV_ANIMATEUR : NAV_PARENT;
     } catch (e) {
-      session.clear(); navItems = NAV_PUBLIC;
+      const msg = String(e && e.message || '');
+      if (msg.includes('401') || msg.toLowerCase().includes('connecté') || msg.toLowerCase().includes('authentif')) {
+        session.clear();
+      }
+      // sinon : erreur transitoire -> on garde la session et on affiche public par defaut pour cette requete
+      navItems = NAV_PUBLIC;
     }
   }
   const links = navItems.map((n) => `<a href="${n.href}" class="${n.href === current ? 'active' : ''}">${n.label}</a>`).join('');
@@ -100,6 +110,11 @@ function renderFooter() {
   </footer>`);
 }
 
+// CORRECTIF PRINCIPAL du bug "connecte puis renvoye a connexion.html" :
+// on ne redirige et on ne clear() QUE si le serveur repond explicitement
+// une erreur d'authentification (401 / message clair). Une erreur reseau
+// ponctuelle (ex: latence Netlify Blobs) ne deconnecte plus l'utilisateur :
+// on retente une seule fois apres un court delai avant d'abandonner.
 async function requireAuth(roles = null) {
   if (!session.token) { location.href = 'connexion.html'; return null; }
   try {
@@ -112,6 +127,27 @@ async function requireAuth(roles = null) {
     }
     return me;
   } catch (e) {
+    const msg = String(e && e.message || '');
+    const estAuthInvalide = msg.includes('401') || msg.toLowerCase().includes('connecté') || msg.toLowerCase().includes('authentif');
+    if (!estAuthInvalide) {
+      // Erreur transitoire (reseau / coherence Blobs) : on retente une fois
+      await new Promise((r) => setTimeout(r, 600));
+      try {
+        const me2 = await api('auth/me');
+        session.compte = me2.compte; session.label = me2.label;
+        if (roles && !roles.includes(me2.compte.role)) {
+          toast('Accès refusé pour ce rôle.', true);
+          location.href = 'index.html';
+          return null;
+        }
+        return me2;
+      } catch (e2) {
+        // Echec persistant meme apres retentative : on abandonne proprement
+        // mais SANS effacer la session (peut etre juste un blip reseau).
+        toast('Connexion au serveur instable, merci de réessayer.', true);
+        return null;
+      }
+    }
     session.clear();
     location.href = 'connexion.html';
     return null;

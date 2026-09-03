@@ -1,8 +1,23 @@
 /**
  * =====================================================================
- *  API du Patro Notre-Dame d'Ittre — v2 (comptes multi-roles)
+ *  API du Patro Notre-Dame d'Ittre — v2.1 (correctif connexion + admin)
  *  Base de donnees : Netlify Blobs (store "patro-db", cle "database")
  *  Routage : cette fonction repond uniquement sur /api/*  (config.path)
+ * =====================================================================
+ *  CORRECTIF v2.1 :
+ *  Netlify Blobs utilise par defaut une coherence "eventual" : une lecture
+ *  juste apres une ecriture peut renvoyer l'ancienne valeur (jusqu'a 60s de
+ *  decalage). C'est exactement ce qui causait le bug "connecte puis
+ *  deconnecte immediatement" : la session ecrite au login n'etait pas
+ *  encore visible lors de la requete /auth/me suivante.
+ *  -> On force desormais `consistency: 'strong'` sur TOUTES les lectures
+ *     et sur le store lui-meme, pour garantir la coherence lecture-apres-
+ *     ecriture (recommandation officielle Netlify Blobs).
+ * =====================================================================
+ *  v2.1 : suppression des comptes de demonstration. Seul un compte
+ *  administrateur (admin@patro.be) est cree automatiquement. Les comptes
+ *  parents et animateurs sont ensuite crees UNIQUEMENT par l'administrateur
+ *  via /api/admin/comptes/creer (portail admin).
  * =====================================================================
  */
 import { getStore } from '@netlify/blobs';
@@ -10,6 +25,12 @@ import { createHash, randomBytes } from 'node:crypto';
 
 const STORE = 'patro-db';
 const KEY = 'database';
+
+// Store configure en coherence forte : chaque lecture va a l'origine et
+// reflete immediatement la derniere ecriture (read-your-writes garanti).
+function store() {
+  return getStore({ name: STORE, consistency: 'strong' });
+}
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -39,100 +60,56 @@ const SECTIONS_DEFAUT = [
 const TYPES_EVENEMENT = ['reunion', 'souper', 'journee', 'camp'];
 const LABEL_TYPE = { reunion: 'Réunion', souper: 'Souper', journee: 'Journée spéciale', camp: 'Camp' };
 
+/* ------------------------------------------------------------------ */
+/*  Amorce minimale : uniquement le compte administrateur.             */
+/*  Plus aucun compte de demonstration (parent/animateur) : ceux-ci     */
+/*  sont desormais crees exclusivement par l'admin depuis le portail.  */
+/* ------------------------------------------------------------------ */
 function seed() {
-  const mkCompte = (o) => {
-    const salt = randomBytes(8).toString('hex');
-    return {
-      id: o.id, email: o.email, salt, passwordHash: hash(o.password, salt),
-      prenom: o.prenom, nom: o.nom, role: o.role, statut: o.statut || 'valide',
-      tel: o.tel || '', adresse: o.adresse || '', codePostal: o.codePostal || '1460',
-      localite: o.localite || 'Ittre', contactUrgence: o.contactUrgence || '', remarques: '',
-      sectionId: o.sectionId || null, totem: o.totem || '', bio: o.bio || '', tache: o.tache || '',
-      liens: o.liens || [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    };
+  const salt = randomBytes(8).toString('hex');
+  const admin = {
+    id: 'cpt_admin', email: 'admin@patro.be', salt, passwordHash: hash('Ster2014', salt),
+    prenom: 'Administrateur', nom: 'Patro', role: 'admin', statut: 'valide',
+    tel: '', adresse: '', codePostal: '1460', localite: 'Ittre', contactUrgence: '', remarques: '',
+    sectionId: null, totem: '', bio: '', tache: '', liens: [],
+    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   };
-
-  const comptes = [
-    mkCompte({ id: 'cpt_admin', email: 'admin@patro.be', password: 'admin123', prenom: 'Nicolas', nom: 'Bastin', role: 'admin', tel: '0477 88 99 00', totem: 'Bison' }),
-    mkCompte({ id: 'cpt_anim1', email: 'camille.dubois@patro-ittre.be', password: 'animateur123', prenom: 'Camille', nom: 'Dubois', role: 'animateur', sectionId: 'bengalis', tel: '0470 11 22 33', totem: 'Loutre', bio: 'Cheffe de section, passionnée de bricolage.', tache: 'Responsable matériel' }),
-    mkCompte({ id: 'cpt_anim2', email: 'thomas.lemaire@patro-ittre.be', password: 'animateur123', prenom: 'Thomas', nom: 'Lemaire', role: 'animateur', sectionId: 'benjas', tel: '0471 22 33 44', totem: 'Ecureuil', bio: 'Anime les grands jeux depuis 3 ans.', tache: 'Responsable communication' }),
-    mkCompte({ id: 'cpt_anim3', email: 'julie.marchal@patro-ittre.be', password: 'animateur123', prenom: 'Julie', nom: 'Marchal', role: 'animateur', sectionId: 'chevaliers-etincelles', tel: '0474 55 66 77', totem: 'Hirondelle', bio: 'Cheffe de section Chevaliers-Étincelles.', tache: '' }),
-    mkCompte({ id: 'cpt_anim4', email: 'maxime.delvaux@patro-ittre.be', password: 'animateur123', prenom: 'Maxime', nom: 'Delvaux', role: 'animateur', sectionId: 'conquerants-alpines', tel: '0475 66 77 88', totem: 'Bouquetin', bio: '', tache: 'Responsable camp' }),
-    mkCompte({ id: 'cpt_anim5', email: 'lucie.renard@patro-ittre.be', password: 'animateur123', prenom: 'Lucie', nom: 'Renard', role: 'animateur', sectionId: 'aventuriers', tel: '0476 77 88 99', totem: 'Chouette', bio: '', tache: '' }),
-    mkCompte({ id: 'cpt_par1', email: 'marie.durand@example.com', password: 'parent123', prenom: 'Marie', nom: 'Durand', role: 'parent', tel: '0478 12 34 56', adresse: 'Rue de la Montagne 12', contactUrgence: 'Paul Durand — 0479 65 43 21', liens: [{ enfantId: 'enf_1', lien: 'Mère' }, { enfantId: 'enf_2', lien: 'Mère' }] }),
-    mkCompte({ id: 'cpt_par2', email: 'olivier.peeters@example.com', password: 'parent123', prenom: 'Olivier', nom: 'Peeters', role: 'parent', tel: '0479 98 76 54', adresse: 'Chaussée de Nivelles 45', localite: 'Virginal', contactUrgence: 'Sophie Peeters — 0470 55 44 33', liens: [{ enfantId: 'enf_3', lien: 'Père' }] }),
-  ];
-
-  const mkPaiements = () => ([
-    { id: uid('pay'), type: 'cotisation', label: "Cotisation annuelle (goûters inclus)", montant: 50, paye: false, datePaiement: null },
-    { id: uid('pay'), type: 'camp', label: "Camp d'été", montant: 150, paye: false, datePaiement: null },
-  ]);
-
-  const enfants = [
-    { id: 'enf_1', compteId: 'cpt_par1', prenom: 'Léa', nom: 'Durand', naissance: '2018-04-12', sectionId: 'bengalis',
-      allergies: 'Arachides', remarquesMedicales: '', photoAutorisee: true,
-      documents: { ficheSante: null, autorisation: null, autres: [] }, paiements: mkPaiements(), createdAt: new Date().toISOString() },
-    { id: 'enf_2', compteId: 'cpt_par1', prenom: 'Hugo', nom: 'Durand', naissance: '2015-09-03', sectionId: 'benjas',
-      allergies: '', remarquesMedicales: 'Asthme léger (ventoline dans le sac)', photoAutorisee: true,
-      documents: { ficheSante: null, autorisation: null, autres: [] }, paiements: mkPaiements(), createdAt: new Date().toISOString() },
-    { id: 'enf_3', compteId: 'cpt_par2', prenom: 'Nina', nom: 'Peeters', naissance: '2013-01-22', sectionId: 'chevaliers-etincelles',
-      allergies: '', remarquesMedicales: '', photoAutorisee: false,
-      documents: { ficheSante: null, autorisation: null, autres: [] }, paiements: mkPaiements(), createdAt: new Date().toISOString() },
-  ];
-  enfants[0].paiements[0].paye = true; enfants[0].paiements[0].datePaiement = today();
-
-  const reunions = [];
-  const samedis = ['2025-09-06','2025-09-13','2025-09-20','2025-09-27','2025-10-04','2025-10-11','2025-10-18','2025-10-25'];
-  samedis.forEach((d, i) => {
-    reunions.push({ id: `reu_${d}`, titre: i === 0 ? 'Réunion de rentrée' : 'Réunion hebdomadaire', type: 'reunion',
-      date: d, dateFin: null, heureDebut: '14:00', heureFin: '17:00', lieu: 'Parking en face du Deli-traiteur, Ittre',
-      description: i === 0 ? "Apportez la fiche d'inscription complétée !" : '',
-      sections: SECTIONS_DEFAUT.map(s => s.id), createdBy: 'cpt_admin', createdAt: new Date().toISOString() });
-  });
-  reunions.push({ id: 'reu_souper_2025', titre: 'Souper des familles', type: 'souper', date: '2025-11-22', dateFin: null,
-    heureDebut: '19:00', heureFin: '23:00', lieu: "Salle communale d'Ittre", description: 'Souper annuel de soutien au Patro.',
-    sections: SECTIONS_DEFAUT.map(s => s.id), createdBy: 'cpt_admin', createdAt: new Date().toISOString() });
-  reunions.push({ id: 'reu_camp_2026', titre: "Camp d'été — du 1er au 10 août", type: 'camp', date: '2026-08-01', dateFin: '2026-08-10',
-    heureDebut: '10:00', heureFin: '16:00', lieu: 'Lieu de camp (communiqué en juin)', description: 'Le camp se déroule chaque année du 1er au 10 août.',
-    sections: SECTIONS_DEFAUT.map(s => s.id), createdBy: 'cpt_admin', createdAt: new Date().toISOString() });
 
   const contenu = {
     patroTexte: "Le Patro est un mouvement de jeunesse belge qui accueille les enfants et les jeunes de 4 à 18 ans et plus, chaque samedi après-midi.\n\n(Ce texte est provisoire : l'administrateur pourra le remplacer depuis l'onglet « Contenu » de l'espace administrateur.)",
     infosImportantes: "Les réunions se déroulent tous les samedis de 14h00 à 17h00.\nUn goûter est prévu lors de chaque réunion.\nLe rendez-vous se fait sur le parking en face du « Deli-traiteur », endroit où se trouvent nos locaux.\nLes enfants peuvent venir essayer une réunion pour voir comment cela se déroule.\nLe camp se déroule chaque année aux mêmes dates, du 1er au 10 août.",
     histoire: [
       { id: 'hist_1', date: '1958', titre: "Fondation du Patro Notre-Dame d'Ittre", texteCourt: "Création du groupe par la paroisse d'Ittre.", texteLong: "Texte détaillé à compléter par l'administrateur depuis l'onglet Contenu." },
-      { id: 'hist_2', date: '1990', titre: "Premier camp à l'étranger", texteCourt: 'Le Patro organise son premier grand camp hors de Belgique.', texteLong: "Texte détaillé à compléter par l'administrateur depuis l'onglet Contenu." },
-      { id: 'hist_3', date: '2020', titre: 'Rénovation des locaux', texteCourt: 'Les locaux du Deli-traiteur sont rénovés par les animateurs et parents.', texteLong: "Texte détaillé à compléter par l'administrateur depuis l'onglet Contenu." },
     ],
   };
 
-  const taches = [
-    { id: 'tache_1', nom: 'Responsable communication', referentCompteId: 'cpt_anim2', referentNomLibre: '' },
-    { id: 'tache_2', nom: 'Responsable matériel', referentCompteId: 'cpt_anim1', referentNomLibre: '' },
-    { id: 'tache_3', nom: 'Responsable camp', referentCompteId: 'cpt_anim4', referentNomLibre: '' },
-  ];
-
   return {
-    meta: { version: 2, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-    sections: SECTIONS_DEFAUT, comptes, enfants, reunions, presences: [],
-    notifications: [], questions: [], taches, contenu, sessions: [],
+    meta: { version: 3, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    sections: SECTIONS_DEFAUT, comptes: [admin], enfants: [], reunions: [], presences: [],
+    notifications: [], questions: [], taches: [], contenu, sessions: [],
   };
 }
 
 async function readDB() {
-  const store = getStore(STORE);
-  let db = await store.get(KEY, { type: 'json' });
-  if (!db) { db = seed(); await store.setJSON(KEY, db); }
+  const s = store();
+  let db = await s.get(KEY, { type: 'json', consistency: 'strong' });
+  if (!db) { db = seed(); await s.setJSON(KEY, db); }
   for (const k of ['sections','comptes','enfants','reunions','presences','notifications','questions','taches','sessions']) {
     if (!Array.isArray(db[k])) db[k] = [];
   }
   if (!db.contenu) db.contenu = seed().contenu;
   if (!db.sections.length) db.sections = SECTIONS_DEFAUT;
+  // garantit qu'il existe toujours au moins un compte admin, meme si la
+  // base a ete modifiee/corrompue manuellement.
+  if (!db.comptes.some((c) => c.role === 'admin')) {
+    const s2 = seed();
+    db.comptes.push(s2.comptes[0]);
+  }
   return db;
 }
 async function writeDB(db) {
   db.meta = { ...(db.meta || {}), updatedAt: new Date().toISOString() };
-  await getStore(STORE).setJSON(KEY, db);
+  await store().setJSON(KEY, db);
   return db;
 }
 function upsert(list, item, prefix) {
@@ -204,14 +181,6 @@ export default async (request, context) => {
     if (route === 'system/status' && request.method === 'GET') {
       return json({ nbComptes: db.comptes.length, initialise: db.comptes.length > 0 });
     }
-    if (route === 'system/init-demo' && request.method === 'POST') {
-      if (db.comptes.length > 0) {
-        return err("La base contient déjà des comptes : impossible de réinitialiser via cette route par sécurité. Utilisez l'espace administrateur.", 409);
-      }
-      const fresh = seed();
-      await writeDB(fresh);
-      return json({ ok: true, message: 'Comptes de démonstration créés avec succès. Vous pouvez maintenant vous connecter.' });
-    }
 
     if (route === 'sections' && request.method === 'GET') return json({ sections: db.sections });
     if (route === 'contenu' && request.method === 'GET') return json({ contenu: db.contenu });
@@ -221,6 +190,7 @@ export default async (request, context) => {
       return json({ animateurs: list, sections: db.sections });
     }
 
+    /* ------------------- Inscription publique (parents) ------------------- */
     if (route === 'auth/inscription' && request.method === 'POST') {
       const { prenom, nom, email, password, tel, adresse, codePostal, localite, contactUrgence, enfants: enfantsForm } = body;
       if (!prenom || !nom || !email || !password) return err('Prénom, nom, e-mail et mot de passe sont obligatoires.');
@@ -260,6 +230,8 @@ export default async (request, context) => {
       if (c.statut === 'refuse') return err("Votre demande d'inscription a été refusée. Contactez pndi@patro.be.", 403);
       const token = randomBytes(24).toString('hex');
       db.sessions.push({ token, compteId: c.id, createdAt: new Date().toISOString() });
+      // Ecriture puis relecture forcee en coherence forte (voir store()) :
+      // garantit que la session sera visible des la requete suivante.
       await writeDB(db);
       return json({ token, compte: publicCompte(c), label: labelCompte(db, c) });
     }
@@ -447,6 +419,43 @@ export default async (request, context) => {
 
     if (route.startsWith('admin/') && !need('admin')) return err("Accès réservé à l'administrateur.", 403);
 
+    /* ------------- Creation directe de comptes par l'administrateur ------------- */
+    if (route === 'admin/comptes/creer' && request.method === 'POST') {
+      const { role, prenom, nom, email, password, tel, sectionId, totem, bio, tache,
+              adresse, codePostal, localite, contactUrgence, enfants: enfantsForm } = body;
+      if (!prenom || !nom || !email || !password) return err('Prénom, nom, e-mail et mot de passe sont obligatoires.');
+      if (!['parent','animateur','admin'].includes(role)) return err('Rôle invalide.');
+      if (db.comptes.some((c) => norm(c.email) === norm(email))) return err('Un compte existe déjà avec cet e-mail.');
+      const salt = randomBytes(8).toString('hex');
+
+      let nouveauxEnfants = [];
+      if (role === 'parent' && Array.isArray(enfantsForm)) {
+        nouveauxEnfants = enfantsForm.filter((ef) => ef && ef.prenom).map((ef) => ({
+          id: uid('enf'), compteId: null, prenom: ef.prenom, nom: ef.nom || nom, naissance: ef.naissance || '',
+          sectionId: ef.sectionId || '', allergies: ef.allergies || '', remarquesMedicales: ef.remarquesMedicales || '',
+          photoAutorisee: !!ef.photoAutorisee, documents: { ficheSante: null, autorisation: null, autres: [] },
+          paiements: [
+            { id: uid('pay'), type: 'cotisation', label: "Cotisation annuelle (goûters inclus)", montant: 50, paye: false, datePaiement: null },
+            { id: uid('pay'), type: 'camp', label: "Camp d'été", montant: 150, paye: false, datePaiement: null },
+          ], createdAt: new Date().toISOString(),
+        }));
+      }
+
+      const nouveauCompte = {
+        id: uid('cpt'), email: norm(email), salt, passwordHash: hash(password, salt),
+        prenom, nom, role, statut: 'valide', tel: tel || '', adresse: adresse || '',
+        codePostal: codePostal || '1460', localite: localite || 'Ittre', contactUrgence: contactUrgence || '', remarques: '',
+        sectionId: role === 'animateur' ? (sectionId || null) : null,
+        totem: totem || '', bio: bio || '', tache: tache || '',
+        liens: nouveauxEnfants.map((e) => ({ enfantId: e.id, lien: e.lien || 'Responsable' })),
+        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      };
+      db.comptes.push(nouveauCompte);
+      nouveauxEnfants.forEach((e) => { e.compteId = nouveauCompte.id; db.enfants.push(e); });
+      await writeDB(db);
+      return json(publicCompte(nouveauCompte));
+    }
+
     if (route === 'admin/inscriptions' && request.method === 'GET') return json({ inscriptions: db.comptes.filter((c) => c.statut === 'attente').map(publicCompte) });
     if (route === 'admin/inscriptions/valider' && request.method === 'POST') {
       const c = db.comptes.find((x) => x.id === body.compteId);
@@ -486,6 +495,35 @@ export default async (request, context) => {
       await writeDB(db);
       return json(publicCompte(c));
     }
+    if (route === 'admin/comptes/supprimer' && request.method === 'POST') {
+      const c = db.comptes.find((x) => x.id === body.compteId);
+      if (!c) return err('Compte introuvable.', 404);
+      if (c.role === 'admin' && db.comptes.filter((x) => x.role === 'admin').length <= 1) {
+        return err('Impossible de supprimer le dernier compte administrateur.', 400);
+      }
+      db.comptes = db.comptes.filter((x) => x.id !== body.compteId);
+      db.sessions = db.sessions.filter((s) => s.compteId !== body.compteId);
+      await writeDB(db);
+      return json({ ok: true });
+    }
+    if (route === 'admin/enfants/ajouter' && request.method === 'POST') {
+      const { compteId, enfant } = body;
+      const c = db.comptes.find((x) => x.id === compteId);
+      if (!c || c.role !== 'parent') return err('Compte parent introuvable.', 404);
+      const e = { id: uid('enf'), compteId: c.id, prenom: enfant.prenom, nom: enfant.nom || c.nom,
+        naissance: enfant.naissance || '', sectionId: enfant.sectionId || '', allergies: enfant.allergies || '',
+        remarquesMedicales: enfant.remarquesMedicales || '', photoAutorisee: !!enfant.photoAutorisee,
+        documents: { ficheSante: null, autorisation: null, autres: [] },
+        paiements: [
+          { id: uid('pay'), type: 'cotisation', label: "Cotisation annuelle (goûters inclus)", montant: 50, paye: false, datePaiement: null },
+          { id: uid('pay'), type: 'camp', label: "Camp d'été", montant: 150, paye: false, datePaiement: null },
+        ], createdAt: new Date().toISOString() };
+      db.enfants.push(e);
+      c.liens = [...(c.liens || []), { enfantId: e.id, lien: enfant.lien || 'Responsable' }];
+      await writeDB(db);
+      return json(e);
+    }
+
     if (route === 'admin/enfants' && request.method === 'GET') return json({ enfants: db.enfants, sections: db.sections });
     if (route === 'admin/paiements/marquer' && request.method === 'POST') {
       const e = db.enfants.find((x) => x.id === body.enfantId);

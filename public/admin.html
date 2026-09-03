@@ -7,7 +7,8 @@
   <h1 class="page-title"><span class="ico">⚙️</span> Espace administrateur</h1>
   <div class="grid grid-4" id="stats"></div>
   <div class="tabs">
-    <button class="tab active" data-tab="inscriptions">📋 Inscriptions</button>
+    <button class="tab active" data-tab="creercompte">➕ Créer un compte</button>
+    <button class="tab" data-tab="inscriptions">📋 Inscriptions</button>
     <button class="tab" data-tab="animateurs">🧑‍🏫 Animateurs</button>
     <button class="tab" data-tab="enfants">👧 Enfants</button>
     <button class="tab" data-tab="evenement">📅 Créer un événement</button>
@@ -17,14 +18,50 @@
     <button class="tab" data-tab="contenu">📝 Contenu du site</button>
   </div>
 
-  <div class="tab-panel active" id="panel-inscriptions">
+  <!-- Creer un compte (parent ou animateur) -->
+  <div class="tab-panel active" id="panel-creercompte">
+    <section class="card card-accent">
+      <h3>➕ Créer un nouveau compte</h3>
+      <p class="page-sub">Les comptes parents et animateurs sont créés ici par l'administrateur.</p>
+      <div class="row">
+        <div><label>Rôle *</label><select id="ccRole" onchange="toggleChampsRole()">
+          <option value="parent">Parent</option><option value="animateur">Animateur</option><option value="admin">Administrateur</option>
+        </select></div>
+        <div><label>Prénom *</label><input id="ccPrenom"></div>
+        <div><label>Nom *</label><input id="ccNom"></div>
+      </div>
+      <div class="row">
+        <div><label>E-mail *</label><input type="email" id="ccEmail"></div>
+        <div><label>Mot de passe *</label><input type="password" id="ccPassword"></div>
+        <div><label>Téléphone</label><input id="ccTel"></div>
+      </div>
+      <div id="ccAnimateurBox" style="display:none">
+        <div class="row">
+          <div><label>Section (animateur) *</label><select id="ccSection"></select></div>
+          <div><label>Totem</label><input id="ccTotem"></div>
+          <div><label>Tâche / responsabilité</label><input id="ccTache" placeholder="Ex: Responsable communication"></div>
+        </div>
+        <label>Bio (affichée publiquement)</label><textarea id="ccBio" style="min-height:80px"></textarea>
+      </div>
+      <div id="ccParentBox">
+        <div class="divider"></div>
+        <h4>👧 Enfant(s) à associer (facultatif, ajoutable plus tard)</h4>
+        <div id="ccEnfants"></div>
+        <div class="btn-row"><button class="btn btn-ghost btn-sm" onclick="ajouterEnfantCC()">➕ Ajouter un enfant</button></div>
+      </div>
+      <div class="btn-row"><button class="btn btn-primary" onclick="creerCompte()">💾 Créer le compte</button></div>
+      <div id="ccMsg"></div>
+    </section>
+  </div>
+
+  <div class="tab-panel" id="panel-inscriptions">
     <section class="card"><h3>Demandes d'inscription en attente</h3><div id="inscriptions"><div class="loader"></div></div></section>
   </div>
 
   <div class="tab-panel" id="panel-animateurs">
     <section class="card">
-      <h3>Attribuer un rôle</h3>
-      <p class="hint">Sélectionnez un compte validé pour en faire un animateur (avec sa section) ou un administrateur.</p>
+      <h3>Modifier un rôle existant</h3>
+      <p class="hint">Sélectionnez un compte déjà validé pour changer son rôle ou sa section.</p>
       <div class="row">
         <div><label>Compte</label><select id="rCompte"></select></div>
         <div><label>Rôle</label><select id="rRole" onchange="document.getElementById('rSectionBox').style.display=this.value==='animateur'?'block':'none'">
@@ -40,6 +77,7 @@
       <div class="btn-row"><button class="btn btn-primary" onclick="attribuer()">💾 Enregistrer</button></div>
     </section>
     <section class="card"><h3>Équipe par section</h3><div id="listeAnimateurs"></div></section>
+    <section class="card"><h3>Tous les comptes</h3><div id="listeComptes"></div></section>
   </div>
 
   <div class="tab-panel" id="panel-enfants">
@@ -150,9 +188,11 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   const s = await api('sections'); SECTIONS = s.sections;
   document.getElementById('fSection').innerHTML = '<option value="">Toutes les sections</option>'+SECTIONS.map(s=>`<option value="${s.id}">${esc(s.nom)}</option>`).join('');
   document.getElementById('rSection').innerHTML = SECTIONS.map(s=>`<option value="${s.id}">${esc(s.nom)}</option>`).join('');
+  document.getElementById('ccSection').innerHTML = SECTIONS.map(s=>`<option value="${s.id}">${esc(s.nom)}</option>`).join('');
   document.getElementById('statSection').innerHTML = SECTIONS.map(s=>`<option value="${s.id}">${esc(s.nom)}</option>`).join('');
   document.getElementById('evSections').innerHTML = SECTIONS.map(s=>`<label class="check" style="margin:0"><input type="checkbox" class="evSec" value="${s.id}"> ${esc(s.nom)}</label>`).join('');
 
+  ajouterEnfantCC();
   await Promise.all([chargerInscriptions(), chargerComptes(), chargerEnfants(), chargerTaches(), chargerContenu(), chargerReunionsRappel()]);
   await chargerStats();
   renderStatsHeader();
@@ -160,6 +200,62 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   const hash = location.hash.replace('#','');
   if(hash){ const btn = [...document.querySelectorAll('.tab')].find(t=>(t.dataset.real||t.dataset.tab)===hash); if(btn) btn.click(); }
 })();
+
+/* ---------- Créer un compte ---------- */
+function toggleChampsRole(){
+  const role = document.getElementById('ccRole').value;
+  document.getElementById('ccAnimateurBox').style.display = role==='animateur' ? 'block' : 'none';
+  document.getElementById('ccParentBox').style.display = role==='parent' ? 'block' : 'none';
+}
+let compteurCC = 0;
+function blocEnfantCC(n){
+  return `<fieldset data-cc="${n}">
+    <legend>Enfant ${n}</legend>
+    <div class="row">
+      <div><label>Prénom</label><input class="cce-prenom"></div>
+      <div><label>Nom</label><input class="cce-nom"></div>
+      <div><label>Lien de parenté</label><select class="cce-lien">
+        <option>Mère</option><option>Père</option><option>Tuteur/Tutrice</option><option>Grand-parent</option><option>Autre responsable</option>
+      </select></div>
+    </div>
+    <div class="row">
+      <div><label>Date de naissance</label><input type="date" class="cce-naissance"></div>
+      <div><label>Section</label><select class="cce-section">${SECTIONS.map(s=>`<option value="${s.id}">${esc(s.nom)}</option>`).join('')}</select></div>
+    </div>
+    <div class="btn-row"><button type="button" class="btn btn-danger btn-sm" onclick="this.closest('fieldset').remove()">🗑️ Retirer</button></div>
+  </fieldset>`;
+}
+function ajouterEnfantCC(){ compteurCC++; document.getElementById('ccEnfants').insertAdjacentHTML('beforeend', blocEnfantCC(compteurCC)); }
+
+async function creerCompte(){
+  const role = document.getElementById('ccRole').value;
+  const body = {
+    role, prenom: v('ccPrenom'), nom: v('ccNom'), email: v('ccEmail'), password: document.getElementById('ccPassword').value,
+    tel: v('ccTel'),
+  };
+  if(role==='animateur'){
+    body.sectionId = document.getElementById('ccSection').value;
+    body.totem = v('ccTotem'); body.tache = v('ccTache'); body.bio = document.getElementById('ccBio').value.trim();
+  }
+  if(role==='parent'){
+    body.enfants = [...document.querySelectorAll('#ccEnfants fieldset')].map(fs=>({
+      prenom: fs.querySelector('.cce-prenom').value.trim(),
+      nom: fs.querySelector('.cce-nom').value.trim(),
+      lien: fs.querySelector('.cce-lien').value,
+      naissance: fs.querySelector('.cce-naissance').value,
+      sectionId: fs.querySelector('.cce-section').value,
+    })).filter(e=>e.prenom);
+  }
+  if(!body.prenom||!body.nom||!body.email||!body.password) return toast('Merci de compléter les champs obligatoires (*)',true);
+  if(role==='animateur' && !body.sectionId) return toast('La section est obligatoire pour un animateur',true);
+  try{
+    await api('admin/comptes/creer',{method:'POST',body});
+    document.getElementById('ccMsg').innerHTML = '<div class="alert alert-ok">✅ Compte créé avec succès.</div>';
+    ['ccPrenom','ccNom','ccEmail','ccPassword','ccTel','ccTotem','ccTache','ccBio'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    document.getElementById('ccEnfants').innerHTML=''; compteurCC=0; ajouterEnfantCC();
+    await chargerComptes(); await chargerEnfants(); renderStatsHeader();
+  }catch(e){ document.getElementById('ccMsg').innerHTML = `<div class="alert alert-err">${esc(e.message)}</div>`; }
+}
 
 function renderStatsHeader(){
   document.getElementById('stats').innerHTML = `
@@ -203,6 +299,19 @@ async function chargerComptes(){
       : '<div class="empty">Aucun animateur.</div>'}
     </section>`;
   }).join('');
+  document.getElementById('listeComptes').innerHTML = `
+    <div class="table-wrap"><table><thead><tr><th>Nom</th><th>E-mail</th><th>Rôle</th><th>Statut</th><th></th></tr></thead>
+      <tbody>${comptes.map(c=>`<tr>
+        <td>${esc(c.prenom)} ${esc(c.nom)}</td><td>${esc(c.email)}</td>
+        <td><span class="chip chip-role">${c.role}</span></td>
+        <td>${c.statut==='valide'?'<span class="badge badge-ok">Validé</span>':c.statut==='attente'?'<span class="badge badge-jaune">En attente</span>':'<span class="badge badge-ko">Refusé</span>'}</td>
+        <td>${c.role!=='admin'?`<button class="btn btn-danger btn-sm" onclick="supprimerCompte('${c.id}')">🗑️ Supprimer</button>`:''}</td>
+      </tr>`).join('')}</tbody></table></div>`;
+}
+async function supprimerCompte(id){
+  if(!confirm('Supprimer définitivement ce compte ?')) return;
+  try{ await api('admin/comptes/supprimer',{method:'POST',body:{compteId:id}}); toast('Compte supprimé'); await chargerComptes(); }
+  catch(e){ toast(e.message,true); }
 }
 async function attribuer(){
   const compteId = document.getElementById('rCompte').value;
