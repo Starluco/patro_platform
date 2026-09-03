@@ -4,76 +4,44 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Patro Notre-Dame d'Ittre — Accueil</title>
-<meta name="description" content="Site officiel du Patro Notre-Dame d'Ittre : réunions tous les samedis de 14h à 17h, camp du 1er au 10 août.">
 <link rel="stylesheet" href="assets/style.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='%23F9C80E'/><text y='72' x='50' text-anchor='middle' font-size='62' font-weight='bold' fill='%231B5E20'>P</text></svg>">
 </head>
 <body>
-
 <header class="hero">
   <span class="badge-jaune">Mouvement de jeunesse • 1460 Ittre</span>
   <h1>Bienvenue sur le site du Patro d'Ittre</h1>
   <p>Vous trouverez ici toutes les informations utiles sur le déroulement de nos activités.</p>
   <div class="btn-row" id="heroActions" style="justify-content:center;margin-top:22px"></div>
 </header>
-
 <main class="container">
-
   <div id="zonePriveeConnectee" style="display:none">
     <h2 class="page-title"><span class="ico">👋</span> <span id="titreBienvenue"></span></h2>
     <p class="page-sub">Accédez rapidement à votre espace personnel.</p>
     <div class="grid grid-3" style="margin-bottom:36px" id="raccourcisConnecte"></div>
   </div>
-
   <h2 class="page-title" style="margin-top:10px"><span class="ico">✨</span> Découvrir le Patro</h2>
   <p class="page-sub">Cliquez sur une bulle pour en savoir plus.</p>
   <div class="grid grid-4">
     <a class="bulle" href="https://www.youtube.com/@patronotre-damedittrepndi1159" target="_blank" rel="noopener">
-      <span class="emoji-big">🎥</span>
-      <h3>C'est quoi un camp Patro ?</h3>
-      <p>Découvrez notre chaîne YouTube</p>
-    </a>
-    <a class="bulle" href="patro.html">
-      <span class="emoji-big">❓</span>
-      <h3>C'est quoi le Patro ?</h3>
-      <p>Fonctionnement, valeurs, organisation</p>
-    </a>
-    <a class="bulle" href="animateurs.html">
-      <span class="emoji-big">🧑‍🏫</span>
-      <h3>Qui sont les animateurs ?</h3>
-      <p>Par section, avec leurs coordonnées</p>
-    </a>
-    <a class="bulle" href="histoire.html">
-      <span class="emoji-big">📜</span>
-      <h3>Histoire</h3>
-      <p>La ligne du temps du Patro d'Ittre</p>
-    </a>
-    <a class="bulle" href="infos.html">
-      <span class="emoji-big">📌</span>
-      <h3>Infos importantes</h3>
-      <p>Horaires, lieu, camp...</p>
-    </a>
-    <a class="bulle" href="inscription.html" id="bulleInscription">
-      <span class="emoji-big">📝</span>
-      <h3>Inscrire mon enfant</h3>
-      <p>Créer une demande de compte parent</p>
-    </a>
+      <span class="emoji-big">🎥</span><h3>C'est quoi un camp Patro ?</h3><p>Découvrez notre chaîne YouTube</p></a>
+    <a class="bulle" href="patro.html"><span class="emoji-big">❓</span><h3>C'est quoi le Patro ?</h3><p>Fonctionnement, valeurs, organisation</p></a>
+    <a class="bulle" href="animateurs.html"><span class="emoji-big">🧑‍🏫</span><h3>Qui sont les animateurs ?</h3><p>Par section, avec leurs coordonnées</p></a>
+    <a class="bulle" href="histoire.html"><span class="emoji-big">📜</span><h3>Histoire</h3><p>La ligne du temps du Patro d'Ittre</p></a>
+    <a class="bulle" href="infos.html"><span class="emoji-big">📌</span><h3>Infos importantes</h3><p>Horaires, lieu, camp...</p></a>
+    <a class="bulle" href="inscription.html" id="bulleInscription"><span class="emoji-big">📝</span><h3>Inscrire mon enfant</h3><p>Créer une demande de compte parent</p></a>
   </div>
-
   <div id="zonePubliqueSeule">
     <h2 class="page-title" style="margin-top:40px"><span class="ico">🎯</span> Nos sections</h2>
     <p class="page-sub">Chaque enfant rejoint une section adaptée à son âge.</p>
     <div id="sections" class="grid grid-3"><div class="loader"></div></div>
   </div>
-
 </main>
-
 <script src="assets/app.js"></script>
 <script>
 (async function init(){
   await renderHeader('index.html');
   renderFooter();
-
   const c = session.compte;
   if (c && session.token) {
     document.getElementById('zonePriveeConnectee').style.display = 'block';

@@ -1,13 +1,21 @@
 <!DOCTYPE html>
 <html lang="fr">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Connexion — Patro Notre-Dame d'Ittre</title>
-<link rel="stylesheet" href="assets/style.css">
-</head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Connexion — Patro Notre-Dame d'Ittre</title><link rel="stylesheet" href="assets/style.css"></head>
 <body>
 <header class="hero hero-sm"><h1>🔑 Connexion</h1><p>Accédez à votre espace personnel</p></header>
 <main class="container-sm">
+
+  <div id="alerteInit" style="display:none" class="alert alert-info">
+    <strong>⚠️ Aucun compte n'existe encore dans la base de données.</strong><br>
+    Cela arrive au tout premier lancement du site (ou après une mise à jour importante).
+    Cliquez sur le bouton ci-dessous pour créer automatiquement les comptes de démonstration
+    (administrateur, animateurs, parents) et pouvoir vous connecter.
+    <div class="btn-row">
+      <button class="btn btn-jaune" onclick="initDemo()">⚡ Initialiser les comptes de démonstration</button>
+    </div>
+  </div>
+
   <section class="card card-accent">
     <label>Adresse e-mail</label><input type="email" id="email" autocomplete="email">
     <label>Mot de passe</label><input type="password" id="password" autocomplete="current-password"
@@ -28,6 +36,22 @@
 <script>
 renderHeader('');
 renderFooter();
+
+(async function(){
+  try{
+    const s = await api('system/status');
+    if(!s.initialise) document.getElementById('alerteInit').style.display='block';
+  }catch(e){}
+})();
+
+async function initDemo(){
+  try{
+    const r = await api('system/init-demo',{method:'POST'});
+    toast(r.message || 'Comptes créés ✔');
+    document.getElementById('alerteInit').style.display='none';
+  }catch(e){ toast(e.message,true); }
+}
+
 async function connecter(){
   const email = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
@@ -37,8 +61,10 @@ async function connecter(){
     session.token = r.token; session.compte = r.compte; session.label = r.label;
     toast('Connexion réussie ✔');
     location.href = r.compte.role==='admin' ? 'admin.html' : r.compte.role==='animateur' ? 'animateur.html' : 'mes-enfants.html';
-  }catch(e){ document.getElementById('msg').innerHTML = `<div class="alert alert-err">${esc(e.message)}</div>`; }
+  }catch(e){
+    document.getElementById('msg').innerHTML = `<div class="alert alert-err">${esc(e.message)}</div>`;
+    try{ const s = await api('system/status'); if(!s.initialise) document.getElementById('alerteInit').style.display='block'; }catch(_){}
+  }
 }
 </script>
-</body>
-</html>
+</body></html>

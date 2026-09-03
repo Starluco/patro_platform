@@ -1,15 +1,11 @@
 <!DOCTYPE html>
 <html lang="fr">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Administration — Patro Notre-Dame d'Ittre</title>
-<link rel="stylesheet" href="assets/style.css">
-</head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Administration — Patro Notre-Dame d'Ittre</title><link rel="stylesheet" href="assets/style.css"></head>
 <body>
 <main class="container">
   <h1 class="page-title"><span class="ico">⚙️</span> Espace administrateur</h1>
   <div class="grid grid-4" id="stats"></div>
-
   <div class="tabs">
     <button class="tab active" data-tab="inscriptions">📋 Inscriptions</button>
     <button class="tab" data-tab="animateurs">🧑‍🏫 Animateurs</button>
@@ -21,12 +17,10 @@
     <button class="tab" data-tab="contenu">📝 Contenu du site</button>
   </div>
 
-  <!-- Inscriptions -->
   <div class="tab-panel active" id="panel-inscriptions">
     <section class="card"><h3>Demandes d'inscription en attente</h3><div id="inscriptions"><div class="loader"></div></div></section>
   </div>
 
-  <!-- Animateurs -->
   <div class="tab-panel" id="panel-animateurs">
     <section class="card">
       <h3>Attribuer un rôle</h3>
@@ -48,7 +42,6 @@
     <section class="card"><h3>Équipe par section</h3><div id="listeAnimateurs"></div></section>
   </div>
 
-  <!-- Enfants -->
   <div class="tab-panel" id="panel-enfants">
     <div id="parSection" class="grid grid-3"></div>
     <section class="card"><h3>Tous les enfants</h3>
@@ -57,7 +50,6 @@
     </section>
   </div>
 
-  <!-- Créer un événement -->
   <div class="tab-panel" id="panel-evenement">
     <section class="card card-accent">
       <h3>📅 Nouvel événement</h3>
@@ -83,7 +75,6 @@
     </section>
   </div>
 
-  <!-- Tâches -->
   <div class="tab-panel" id="panel-taches">
     <section class="card card-accent">
       <h3 id="tacheTitre">➕ Ajouter une tâche</h3>
@@ -99,7 +90,6 @@
     <section class="card"><h3>Tâches et référents</h3><div id="listeTaches"></div></section>
   </div>
 
-  <!-- Rappels -->
   <div class="tab-panel" id="panel-rappels">
     <section class="card">
       <h3>🔔 Rappels de présence</h3>
@@ -109,11 +99,8 @@
     </section>
   </div>
 
-  <!-- Stats -->
   <div class="tab-panel" id="panel-statsp">
-    <section class="card">
-      <div class="row"><div><label>Année</label><select id="statAnnee" onchange="chargerStats()"></select></div></div>
-    </section>
+    <section class="card"><div class="row"><div><label>Année</label><select id="statAnnee" onchange="chargerStats()"></select></div></div></section>
     <section class="card"><h3>📊 Statistiques globales</h3><div id="statGlobal" class="grid grid-4"></div></section>
     <section class="card">
       <h3>📊 Par section</h3>
@@ -123,7 +110,6 @@
     <section class="card"><h3>📊 Par événement</h3><div id="statEvenements"></div></section>
   </div>
 
-  <!-- Contenu -->
   <div class="tab-panel" id="panel-contenu">
     <section class="card card-accent">
       <h3>❓ Texte « C'est quoi le Patro ? »</h3>
@@ -183,7 +169,6 @@ function renderStatsHeader(){
     <div class="stat rouge"><div class="val">${ENFANTS.reduce((t,e)=>t+(e.paiements||[]).filter(p=>!p.paye).length,0)}</div><div class="lbl">Paiements en attente</div></div>`;
 }
 
-/* ---------- Inscriptions ---------- */
 async function chargerInscriptions(){
   const { inscriptions } = await api('admin/inscriptions');
   document.getElementById('inscriptions').innerHTML = inscriptions.length ? inscriptions.map(c=>`
@@ -202,7 +187,6 @@ async function chargerInscriptions(){
 async function validerInscription(id){ await api('admin/inscriptions/valider',{method:'POST',body:{compteId:id}}); toast('Compte validé ✔'); await chargerInscriptions(); await chargerComptes(); await chargerEnfants(); renderStatsHeader(); }
 async function refuserInscription(id){ if(!confirm('Refuser cette demande ?'))return; await api('admin/inscriptions/refuser',{method:'POST',body:{compteId:id}}); toast('Demande refusée'); await chargerInscriptions(); }
 
-/* ---------- Animateurs / comptes ---------- */
 async function chargerComptes(){
   const { comptes } = await api('admin/comptes');
   COMPTES = comptes.filter(c=>c.statut==='valide');
@@ -220,7 +204,6 @@ async function chargerComptes(){
     </section>`;
   }).join('');
 }
-function attribuer(){}
 async function attribuer(){
   const compteId = document.getElementById('rCompte').value;
   const role = document.getElementById('rRole').value;
@@ -231,7 +214,6 @@ async function attribuer(){
   catch(e){ toast(e.message,true); }
 }
 
-/* ---------- Enfants ---------- */
 async function chargerEnfants(){
   const { enfants } = await api('admin/enfants');
   ENFANTS = enfants;
@@ -261,7 +243,6 @@ function renderEnfants(){
       }).join('')}</tbody></table></div>` : '<div class="empty">Aucun enfant.</div>';
 }
 
-/* ---------- Créer un événement ---------- */
 function toggleSections(){ document.getElementById('evSections').style.display = document.getElementById('evToutes').checked ? 'none':'flex'; }
 async function creerEvenement(){
   const secs = [...document.querySelectorAll('.evSec:checked')].map(c=>c.value);
@@ -276,7 +257,6 @@ async function creerEvenement(){
   }catch(e){ toast(e.message,true); }
 }
 
-/* ---------- Taches ---------- */
 async function chargerTaches(){
   const { taches } = await api('admin/taches');
   document.getElementById('listeTaches').innerHTML = taches.length ? taches.map(t=>{
@@ -297,7 +277,6 @@ async function saveTache(){
 }
 async function delTache(id){ if(!confirm('Supprimer cette tâche ?'))return; await api('admin/taches/delete',{method:'POST',body:{id}}); toast('Supprimée'); await chargerTaches(); }
 
-/* ---------- Rappels ---------- */
 async function chargerReunionsRappel(){
   const { reunions } = await api('reunions');
   const today = new Date().toISOString().slice(0,10);
@@ -322,7 +301,6 @@ async function envoyerRappel(reunionId){
   toast(`Rappel envoyé à ${r.nbRappels} parent(s) ✔`); await chargerManquants();
 }
 
-/* ---------- Stats ---------- */
 let STATS=null;
 async function chargerStats(){
   const annee = document.getElementById('statAnnee').value || new Date().getFullYear();
@@ -346,7 +324,6 @@ function renderStatSection(){
     <div class="stat jaune"><div class="val">${val===null?'—':val+'%'}</div><div class="lbl">${STATS.labelsType[type]}</div></div>`).join('');
 }
 
-/* ---------- Contenu ---------- */
 async function chargerContenu(){
   const { contenu } = await api('contenu');
   cPatro.value = contenu.patroTexte||''; cInfos.value = contenu.infosImportantes||'';
@@ -375,5 +352,4 @@ async function delHistoire(id){ if(!confirm('Supprimer cet événement historiqu
 
 function v(id){ return document.getElementById(id).value.trim(); }
 </script>
-</body>
-</html>
+</body></html>

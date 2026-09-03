@@ -3,7 +3,6 @@
    ===================================================================== */
 const API = '/api';
 
-/* ---------- Session ---------- */
 const session = {
   get token(){ return localStorage.getItem('patro_token') || ''; },
   set token(t){ if(t) localStorage.setItem('patro_token', t); else localStorage.removeItem('patro_token'); },
@@ -33,10 +32,7 @@ function toast(msg, isError = false) {
   t._to = setTimeout(() => (t.className = ''), 3600);
 }
 
-/* ---------- Navigation dynamique selon le role ---------- */
-const NAV_PUBLIC = [
-  { href: 'index.html', label: '🏠 Accueil' },
-];
+const NAV_PUBLIC = [ { href: 'index.html', label: '🏠 Accueil' } ];
 const NAV_PARENT = [
   { href: 'index.html', label: '🏠 Accueil' },
   { href: 'mes-enfants.html', label: '👧 Mes enfants' },
@@ -53,7 +49,7 @@ const NAV_ADMIN = [
   { href: 'profil.html', label: '👤 Mon profil' },
 ];
 
-function initialesOf(label){
+function initialesOf(){
   const c = session.compte;
   if(!c) return '?';
   return ((c.prenom||' ')[0]+(c.nom||' ')[0]).toUpperCase();
@@ -68,7 +64,7 @@ async function renderHeader(current) {
       const me = await api('auth/me');
       session.compte = me.compte; session.label = me.label;
       nbNotif = me.nbNotificationsNonLues || 0;
-      navItems = c.role === 'admin' ? NAV_ADMIN : c.role === 'animateur' ? NAV_ANIMATEUR : NAV_PARENT;
+      navItems = me.compte.role === 'admin' ? NAV_ADMIN : me.compte.role === 'animateur' ? NAV_ANIMATEUR : NAV_PARENT;
     } catch (e) {
       session.clear(); navItems = NAV_PUBLIC;
     }
@@ -104,8 +100,6 @@ function renderFooter() {
   </footer>`);
 }
 
-/* Protege une page : redirige vers connexion.html si non connecte,
-   ou verifie le(s) role(s) autorise(s). roles=null -> juste "connecte" */
 async function requireAuth(roles = null) {
   if (!session.token) { location.href = 'connexion.html'; return null; }
   try {
@@ -124,7 +118,6 @@ async function requireAuth(roles = null) {
   }
 }
 
-/* ---------- Sections (referentiel) ---------- */
 const SECTION_COULEURS = {
   bengalis: '#7BC043', benjas: '#4CAF50', 'chevaliers-etincelles': '#F9C80E',
   'conquerants-alpines': '#F4A100', aventuriers: '#2E7D32', grands: '#C9A227',

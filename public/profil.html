@@ -1,24 +1,17 @@
 <!DOCTYPE html>
 <html lang="fr">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Mon profil — Patro Notre-Dame d'Ittre</title>
-<link rel="stylesheet" href="assets/style.css">
-</head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mon profil — Patro Notre-Dame d'Ittre</title><link rel="stylesheet" href="assets/style.css"></head>
 <body>
 <main class="container">
   <h1 class="page-title"><span class="ico">👤</span> Mon profil</h1>
-  <div class="card card-accent" id="carteProfil" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-    <div class="loader"></div>
-  </div>
-
+  <div class="card card-accent" id="carteProfil" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><div class="loader"></div></div>
   <div class="tabs">
     <button class="tab active" data-tab="notifications">🔔 Notifications</button>
     <button class="tab" data-tab="paiements">💳 Paiements</button>
     <button class="tab" data-tab="documents">📄 Documents</button>
     <button class="tab" data-tab="compte">⚙️ Mon compte</button>
   </div>
-
   <div class="tab-panel active" id="panel-notifications">
     <section class="card">
       <div style="display:flex;justify-content:space-between;align-items:center">
@@ -28,16 +21,11 @@
       <div id="notifs" style="margin-top:14px"></div>
     </section>
   </div>
-
-  <div class="tab-panel" id="panel-paiements">
-    <div id="paiements"><div class="loader"></div></div>
-  </div>
-
+  <div class="tab-panel" id="panel-paiements"><div id="paiements"><div class="loader"></div></div></div>
   <div class="tab-panel" id="panel-documents">
     <p class="page-sub">Retrouvez et modifiez les documents administratifs de chacun de vos enfants.</p>
     <div id="docsEnfants" class="grid grid-2"></div>
   </div>
-
   <div class="tab-panel" id="panel-compte">
     <section class="card">
       <h3>✏️ Mes coordonnées</h3>
@@ -142,5 +130,4 @@ async function sauverCompte(){
 function v(id){ return document.getElementById(id).value.trim(); }
 function deconnexion(){ api('auth/logout',{method:'POST'}).catch(()=>{}); session.clear(); location.href='index.html'; }
 </script>
-</body>
-</html>
+</body></html>

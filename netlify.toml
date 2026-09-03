@@ -5,7 +5,7 @@
 
 # La fonction netlify/functions/api.mjs declare elle-meme sa route via
 # `export const config = { path: "/api/*" }`. NE PAS ajouter de [[redirects]]
-# vers /.netlify/functions/api : cela cree un conflit -> 404 (deja corrige une fois).
+# vers /.netlify/functions/api : cela cree un conflit -> 404.
 
 [functions]
   node_bundler = "esbuild"

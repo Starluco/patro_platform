@@ -1,70 +1,74 @@
-# 🌳 Patro Notre-Dame d'Ittre — Application de gestion
+# 🌳 Patro Notre-Dame d'Ittre — Application de gestion (v2.0.1)
 
-Application web (statique + Netlify Functions + **Netlify Blobs** comme base de données JSON)
-pour gérer les inscriptions, sections, chefs, cotisations, présences et communications.
+Application multi-comptes (Parent / Animateur / Administrateur) avec base de données
+**Netlify Blobs**, déployable directement sur Netlify (site statique + 1 fonction API).
 
-## ⚠️ Correctif important (v1.0.1)
+## 🆘 Vous ne pouvez pas vous connecter avec les comptes de démo ?
 
-La v1.0.0 contenait un `netlify.toml` avec une redirection `/api/* -> /.netlify/functions/api/:splat`.
-Or la fonction déclare elle-même sa route via `export const config = { path: '/api/*' }`
-(syntaxe "Netlify Functions v2"). **Quand une fonction définit un `path` personnalisé, elle n'est
-plus disponible du tout à l'ancienne adresse `/.netlify/functions/...`.** La redirection pointait donc
-vers une adresse qui n'existait plus → 404 systématique sur toutes les routes `/api/*`.
+C'est normal si votre base de données existait déjà avant cette mise à jour (v1 → v2) :
+l'ancienne structure ne contenait pas de comptes avec mot de passe.
 
-**Correctif appliqué :** suppression du bloc `[[redirects]]` dans `netlify.toml`. Le routage est
-désormais géré uniquement par `config.path` dans `api.mjs`, comme recommandé par la documentation
-Netlify pour les fonctions modernes.
+**Solution en 1 clic :** allez sur `connexion.html`. Un bandeau jaune apparaît automatiquement
+si aucun compte n'existe encore, avec un bouton **« Initialiser les comptes de démonstration »**.
+Cliquez dessus, puis connectez-vous normalement.
 
-## 🧩 Modules (1 fichier HTML par module)
+> 🔒 Cette route (`/api/system/init-demo`) est protégée : elle ne fonctionne QUE si la base est
+> vide de tout compte. Dès qu'un compte existe (même un seul), elle est automatiquement désactivée.
 
-| Fichier | Module | Contenu |
+## 🔑 Comptes de démonstration
+
+| Rôle | E-mail | Mot de passe |
 |---|---|---|
-| `public/index.html` | **1. Accueil** | Présentation du mouvement, infos pratiques, sections, actualités, agenda |
-| `public/parents.html` | **2. Espace parents** | Inscription, enfants, section, chefs + coordonnées, calendrier, modification des coordonnées, fiche d'inscription imprimable |
-| `public/gestion.html` | **3. Gestion (président)** | Chefs, sections, cotisations, membres, réunions, informations, sauvegarde/export |
-| `public/presences.html` | **4. Présences** | Les parents pointent présent / absent / retard pour chaque réunion |
-| `public/communication.html` | **5. Communication** | E-mail groupé ciblé (tous, en ordre de cotisation, par section, chefs, manuel) + modèles + historique |
+| Administrateur | `admin@patro.be` | `admin123` |
+| Animateur (Bengalis) | `camille.dubois@patro-ittre.be` | `animateur123` |
+| Parent | `marie.durand@example.com` | `parent123` |
+| Parent | `olivier.peeters@example.com` | `parent123` |
 
-## 🗄️ Base de données
+## 🧩 Zones du site
 
-Netlify Blobs — store `patro-db`, clé `database`, un seul objet JSON contenant :
-`sections`, `chefs`, `parents`, `enfants`, `reunions`, `presences`, `infos`, `messages`.
+### Publiques (sans connexion)
+`index.html`, `patro.html`, `animateurs.html`, `histoire.html`/`histoire-detail.html`, `infos.html`, `connexion.html`, `inscription.html`.
 
-Tout passe par une seule function : `netlify/functions/api.mjs`, routée via `config.path = "/api/*"`.
-Au premier appel, la base est automatiquement initialisée avec des **données fictives**.
+### Privées — Parent
+`mes-enfants.html`, `enfant.html?id=...`, `profil.html`.
 
-## 🚀 Déploiement sur Netlify (via GitHub — recommandé)
+### Privées — Animateur
+`animateur.html`.
 
-1. Pousser ce dépôt sur GitHub
-2. Netlify → **Add new site → Import an existing project → GitHub**
-3. Sélectionner le dépôt. Vérifier les build settings (normalement auto-détectés via `netlify.toml`) :
-   - **Publish directory** : `public`
-   - **Functions directory** : `netlify/functions`
-   - **Build command** : `echo 'Site statique + Netlify Functions — rien a builder'` (ou vide)
-4. **Deploy site**
+### Privées — Administrateur
+`admin.html`, `admin-enfant.html?id=...`.
 
-### Variables d'environnement (Site configuration → Environment variables)
+## 🗄️ Base de données (Netlify Blobs)
 
-| Variable | Rôle | Exemple |
-|---|---|---|
-| `ADMIN_PASSWORD` | mot de passe des modules Gestion & Communication | `MonMotDePasse2025` |
-| `RESEND_API_KEY` | *(optionnel)* envoi de vrais e-mails via Resend | `re_xxx` |
-| `MAIL_FROM` | expéditeur des e-mails | `Patro Ittre <pndi@patro.be>` |
+Store `patro-db`, clé `database`. Collections : `sections`, `comptes`, `enfants`,
+`reunions`, `presences`, `notifications`, `questions`, `taches`, `sessions`, `contenu`.
 
-Après avoir ajouté une variable, **redéployer** (Deploys → Trigger deploy).
+Toute la logique est dans **une seule fonction** : `netlify/functions/api.mjs`,
+routée via `config.path = "/api/*"` (⚠️ ne jamais ajouter de `[[redirects]]` vers
+`/.netlify/functions/api` dans `netlify.toml`).
 
-### Vérifier que l'API fonctionne
+### Authentification
+Token simple stocké dans `db.sessions`, envoyé dans l'en-tête `x-auth-token`.
+Mots de passe hachés en `sha256(salt + password)`.
 
+## 🚀 Déploiement
+
+```bash
+git add .
+git commit -m "v2.0.1 : correctif connexion + comptes multi-roles"
+git push
 ```
-https://ton-site.netlify.app/api/db
-```
-→ doit renvoyer du JSON (pas une 404). Sinon, vérifier dans l'onglet **Functions** du site que
-la fonction `api` apparaît bien dans la liste des fonctions déployées.
 
-## 🔑 Accès de démonstration
+Netlify redéploie automatiquement. Après le déploiement, allez sur `/connexion.html`
+et cliquez sur le bouton d'initialisation si le bandeau apparaît.
 
-- **Parents** : `marie.durand@example.com` ou `olivier.peeters@example.com`
-- **Admin** : mot de passe `patro2025` (à changer via `ADMIN_PASSWORD`)
+## ✅ Contenus à fournir par l'administrateur
+
+Tout est éditable depuis `admin.html` → onglets **« Animateurs »** et **« Contenu du site »**.
 
 ## 🎨 Charte graphique
-Vert (`#1B5E20`, `#2E7D32`, `#7BC043`) et jaune (`#F9C80E`) — variables CSS dans `public/assets/style.css`.
+Vert (`#1B5E20`, `#2E7D32`, `#7BC043`) et jaune (`#F9C80E`).
+
+## 🔧 Limitations connues
+- Pas d'envoi de vrais e-mails (uniquement des notifications internes au site).
+- Pas d'upload de fichiers binaires (fiche de santé/autorisation = formulaires texte).

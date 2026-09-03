@@ -1,33 +1,17 @@
 <!DOCTYPE html>
 <html lang="fr">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Fiche enfant (admin) — Patro Notre-Dame d'Ittre</title>
-<link rel="stylesheet" href="assets/style.css">
-</head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fiche enfant (admin) — Patro Notre-Dame d'Ittre</title><link rel="stylesheet" href="assets/style.css"></head>
 <body>
 <main class="container">
   <p class="fil-ariane"><a href="index.html">🏠 Accueil</a> / <a href="admin.html#enfants">Enfants</a> / <span id="filNom"></span></p>
   <div class="card card-accent" id="entete" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><div class="loader"></div></div>
-
   <div class="grid grid-4" id="stats"></div>
-
   <div class="grid grid-2">
-    <section class="card">
-      <h3>📅 Présences</h3>
-      <div id="presences"></div>
-    </section>
-    <section class="card">
-      <h3>💳 Paiements</h3>
-      <div id="paiements"></div>
-    </section>
+    <section class="card"><h3>📅 Présences</h3><div id="presences"></div></section>
+    <section class="card"><h3>💳 Paiements</h3><div id="paiements"></div></section>
   </div>
-
-  <section class="card">
-    <h3>📄 Documents</h3>
-    <div id="documents"></div>
-  </section>
-
+  <section class="card"><h3>📄 Documents</h3><div id="documents"></div></section>
   <section class="card card-accent">
     <h3>✉️ Envoyer une notification personnalisée au parent</h3>
     <label>Titre</label><input id="notifTitre" value="Message du Patro Notre-Dame d'Ittre">
@@ -130,5 +114,4 @@ async function envoyerNotif(){
   }catch(e){ document.getElementById('notifMsg').innerHTML = `<div class="alert alert-err">${esc(e.message)}</div>`; }
 }
 </script>
-</body>
-</html>
+</body></html>

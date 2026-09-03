@@ -1,21 +1,16 @@
 <!DOCTYPE html>
 <html lang="fr">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Espace animateur — Patro Notre-Dame d'Ittre</title>
-<link rel="stylesheet" href="assets/style.css">
-</head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Espace animateur — Patro Notre-Dame d'Ittre</title><link rel="stylesheet" href="assets/style.css"></head>
 <body>
 <main class="container">
   <h1 class="page-title"><span class="ico">🧑‍🏫</span> Espace animateur</h1>
   <div class="card card-accent" id="entete"><div class="loader"></div></div>
-
   <div class="tabs">
     <button class="tab active" data-tab="calendrier">🗓️ Calendrier</button>
     <button class="tab" data-tab="presences">✅ Présences</button>
     <button class="tab" data-tab="notifications">✉️ Questions des parents</button>
   </div>
-
   <div class="tab-panel active" id="panel-calendrier">
     <section class="card card-accent">
       <h3 id="formTitre">➕ Ajouter une réunion / activité pour ma section</h3>
@@ -42,11 +37,9 @@
     </section>
     <section class="card"><h3>Calendrier de ma section</h3><div id="listeReunions"></div></section>
   </div>
-
   <div class="tab-panel" id="panel-presences">
     <section class="card"><h3>✅ Tableau des présences</h3><div id="tablPresences"><div class="loader"></div></div></section>
   </div>
-
   <div class="tab-panel" id="panel-notifications">
     <section class="card"><h3>❓ Questions de ma section</h3><div id="questions"></div></section>
   </div>
@@ -151,5 +144,4 @@ async function repondre(id){
 }
 function v(id){ return document.getElementById(id).value.trim(); }
 </script>
-</body>
-</html>
+</body></html>

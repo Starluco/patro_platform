@@ -1,52 +1,35 @@
 <!DOCTYPE html>
 <html lang="fr">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Fiche enfant — Patro Notre-Dame d'Ittre</title>
-<link rel="stylesheet" href="assets/style.css">
-</head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fiche enfant — Patro Notre-Dame d'Ittre</title><link rel="stylesheet" href="assets/style.css"></head>
 <body>
 <main class="container">
   <p class="fil-ariane"><a href="index.html">🏠 Accueil</a> / <a href="mes-enfants.html">Mes enfants</a> / <span id="filNom"></span></p>
-  <div class="card card-accent" id="enteteEnfant" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-    <div class="loader"></div>
-  </div>
-
+  <div class="card card-accent" id="enteteEnfant" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><div class="loader"></div></div>
   <div class="tabs">
     <button class="tab active" data-tab="calendrier">🗓️ Calendrier</button>
     <button class="tab" data-tab="chefs">🧑‍🏫 Les chefs de ma section</button>
     <button class="tab" data-tab="questions">❓ Questions</button>
     <button class="tab" data-tab="documents">📄 Documents</button>
   </div>
-
   <div class="tab-panel active" id="panel-calendrier"><div id="calendrier"><div class="loader"></div></div></div>
-
   <div class="tab-panel" id="panel-chefs"><div id="chefs"></div></div>
-
   <div class="tab-panel" id="panel-questions">
     <section class="card">
       <h3>Poser une question</h3>
-      <div class="row">
-        <div><label>Catégorie</label>
-          <select id="qCategorie" onchange="document.getElementById('qMsg').textContent=''">
-            <option value="section">Question concernant ma section</option>
-            <option value="patro">Question concernant le Patro ou un événement</option>
-          </select></div>
-      </div>
+      <div class="row"><div><label>Catégorie</label>
+        <select id="qCategorie"><option value="section">Question concernant ma section</option>
+          <option value="patro">Question concernant le Patro ou un événement</option></select></div></div>
       <label>Votre question</label><textarea id="qTexte"></textarea>
       <div class="btn-row"><button class="btn btn-primary" onclick="poser()">Envoyer la question</button></div>
       <div id="qMsg"></div>
     </section>
     <section class="card"><h3>Historique de mes questions concernant cet enfant</h3><div id="qHistorique"></div></section>
   </div>
-
   <div class="tab-panel" id="panel-documents">
     <section class="card">
       <h3>🩺 Fiche de santé</h3>
-      <div class="row">
-        <div><label>Groupe sanguin</label><input id="fsGroupe"></div>
-        <div><label>Médecin traitant</label><input id="fsMedecin"></div>
-      </div>
+      <div class="row"><div><label>Groupe sanguin</label><input id="fsGroupe"></div><div><label>Médecin traitant</label><input id="fsMedecin"></div></div>
       <label>Allergies</label><input id="fsAllergies">
       <label>Traitements / remarques médicales</label><textarea id="fsRemarques"></textarea>
       <div class="btn-row"><button class="btn btn-primary" onclick="sauverDoc('ficheSante')">💾 Enregistrer la fiche de santé</button></div>
@@ -104,7 +87,6 @@ async function charger(){
         </div>`).join('')}</div>`
       : '<div class="empty">Les chefs de cette section seront communiqués prochainement.</div>';
 
-    // fiche sante / autorisation
     const fs = ENFANT.documents?.ficheSante || {};
     fsGroupe.value=fs.groupe||''; fsMedecin.value=fs.medecin||''; fsAllergies.value=fs.allergies||ENFANT.allergies||''; fsRemarques.value=fs.remarques||ENFANT.remarquesMedicales||'';
     if(fs.updatedAt) document.getElementById('fsMaj').textContent='Dernière mise à jour : '+fmtDateCourt(fs.updatedAt.slice(0,10));
@@ -184,5 +166,4 @@ async function poser(){
   }catch(e){ document.getElementById('qMsg').innerHTML = `<div class="alert alert-err">${esc(e.message)}</div>`; }
 }
 </script>
-</body>
-</html>
+</body></html>
