@@ -1,6 +1,6 @@
 {
   "name": "patro-notre-dame-ittre",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "private": true,
   "description": "Application de gestion du Patro Notre-Dame d'Ittre",
   "type": "module",

@@ -1,5 +1,5 @@
 /* =====================================================================
-   Utilitaires communs — Patro Notre-Dame d'Ittre (v2.1)
+   Utilitaires communs — Patro Notre-Dame d'Ittre (v2.2)
    ===================================================================== */
 const API = '/api';
 
@@ -32,6 +32,24 @@ function toast(msg, isError = false) {
   t._to = setTimeout(() => (t.className = ''), 3600);
 }
 
+/* -------- Deconnexion centralisee, utilisee partout -------- */
+async function deconnecterEtRediriger(){
+  try{ await api('auth/logout',{method:'POST'}); }catch(e){}
+  session.clear();
+  // location.replace() remplace l'entree d'historique courante : le bouton
+  // "precedent" du navigateur ne pourra plus re-afficher la page privee.
+  location.replace('index.html');
+}
+
+/* -------- Anti bouton "precedent" (bfcache) --------
+   Quand une page est restauree depuis le cache du navigateur (bfcache),
+   aucun script ne se re-execute normalement : on force un rechargement
+   complet pour que requireAuth()/renderHeader() se relancent et
+   redirigent immediatement si la session n'est plus valide. */
+window.addEventListener('pageshow', function(e){
+  if (e.persisted) location.reload();
+});
+
 const NAV_PUBLIC = [ { href: 'index.html', label: '🏠 Accueil' } ];
 const NAV_PARENT = [
   { href: 'index.html', label: '🏠 Accueil' },
@@ -43,8 +61,9 @@ const NAV_ANIMATEUR = [
   { href: 'animateur.html', label: '🧑‍🏫 Mon espace' },
   { href: 'profil.html', label: '👤 Mon profil' },
 ];
+// Feedback : l'administrateur ne doit plus avoir de lien "Accueil" —
+// apres connexion il reste dans son espace administratif.
 const NAV_ADMIN = [
-  { href: 'index.html', label: '🏠 Accueil' },
   { href: 'admin.html', label: '⚙️ Administration' },
   { href: 'profil.html', label: '👤 Mon profil' },
 ];
@@ -55,11 +74,6 @@ function initialesOf(){
   return ((c.prenom||' ')[0]+(c.nom||' ')[0]).toUpperCase();
 }
 
-// IMPORTANT (correctif bug de deconnexion) : cette fonction NE DOIT PLUS
-// effacer la session locale sur un simple echec reseau/timing transitoire.
-// On ne "clear()" desormais QUE si le serveur repond explicitement 401
-// (session invalide/expiree cote serveur). Toute autre erreur (reseau,
-// 500 passager) laisse la session locale intacte : on reessaiera plus tard.
 async function renderHeader(current) {
   const c = session.compte;
   let nbNotif = 0;
@@ -75,7 +89,6 @@ async function renderHeader(current) {
       if (msg.includes('401') || msg.toLowerCase().includes('connecté') || msg.toLowerCase().includes('authentif')) {
         session.clear();
       }
-      // sinon : erreur transitoire -> on garde la session et on affiche public par defaut pour cette requete
       navItems = NAV_PUBLIC;
     }
   }
@@ -85,7 +98,8 @@ async function renderHeader(current) {
          <span class="profil-avatar">${initialesOf()}</span>
          <span>${esc(session.label || '')}</span>
          ${nbNotif > 0 ? `<span class="profil-badge">${nbNotif > 9 ? '9+' : nbNotif}</span>` : ''}
-       </a>`
+       </a>
+       <button class="btn-logout-top" onclick="deconnecterEtRediriger()">🚪 Se déconnecter</button>`
     : `<a href="connexion.html" class="btn-connexion">🔑 Connexion</a>`;
 
   document.body.insertAdjacentHTML('afterbegin', `
@@ -110,11 +124,6 @@ function renderFooter() {
   </footer>`);
 }
 
-// CORRECTIF PRINCIPAL du bug "connecte puis renvoye a connexion.html" :
-// on ne redirige et on ne clear() QUE si le serveur repond explicitement
-// une erreur d'authentification (401 / message clair). Une erreur reseau
-// ponctuelle (ex: latence Netlify Blobs) ne deconnecte plus l'utilisateur :
-// on retente une seule fois apres un court delai avant d'abandonner.
 async function requireAuth(roles = null) {
   if (!session.token) { location.href = 'connexion.html'; return null; }
   try {
@@ -130,7 +139,6 @@ async function requireAuth(roles = null) {
     const msg = String(e && e.message || '');
     const estAuthInvalide = msg.includes('401') || msg.toLowerCase().includes('connecté') || msg.toLowerCase().includes('authentif');
     if (!estAuthInvalide) {
-      // Erreur transitoire (reseau / coherence Blobs) : on retente une fois
       await new Promise((r) => setTimeout(r, 600));
       try {
         const me2 = await api('auth/me');
@@ -142,8 +150,6 @@ async function requireAuth(roles = null) {
         }
         return me2;
       } catch (e2) {
-        // Echec persistant meme apres retentative : on abandonne proprement
-        // mais SANS effacer la session (peut etre juste un blip reseau).
         toast('Connexion au serveur instable, merci de réessayer.', true);
         return null;
       }

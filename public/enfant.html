@@ -6,41 +6,133 @@
 <main class="container">
   <p class="fil-ariane"><a href="index.html">🏠 Accueil</a> / <a href="mes-enfants.html">Mes enfants</a> / <span id="filNom"></span></p>
   <div class="card card-accent" id="enteteEnfant" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><div class="loader"></div></div>
+  <div id="alerteErreur"></div>
+
   <div class="tabs">
     <button class="tab active" data-tab="calendrier">🗓️ Calendrier</button>
     <button class="tab" data-tab="chefs">🧑‍🏫 Les chefs de ma section</button>
     <button class="tab" data-tab="questions">❓ Questions</button>
     <button class="tab" data-tab="documents">📄 Documents</button>
   </div>
+
   <div class="tab-panel active" id="panel-calendrier"><div id="calendrier"><div class="loader"></div></div></div>
   <div class="tab-panel" id="panel-chefs"><div id="chefs"></div></div>
+
   <div class="tab-panel" id="panel-questions">
     <section class="card">
       <h3>Poser une question</h3>
       <div class="row"><div><label>Catégorie</label>
-        <select id="qCategorie"><option value="section">Question concernant ma section</option>
-          <option value="patro">Question concernant le Patro ou un événement</option></select></div></div>
+        <select id="qCategorie" onchange="majCategorieQuestion()">
+          <option value="section">Question concernant ma section</option>
+          <option value="patro">Question concernant le Patro ou un événement</option>
+        </select></div></div>
+      <p class="hint" id="qHintSection">Votre question sera envoyée aux animateurs de la section de <span id="qEnfantNom"></span>.</p>
+      <p class="hint" id="qHintPatro" style="display:none">Votre question sera envoyée directement à l'administrateur du Patro.</p>
       <label>Votre question</label><textarea id="qTexte"></textarea>
       <div class="btn-row"><button class="btn btn-primary" onclick="poser()">Envoyer la question</button></div>
       <div id="qMsg"></div>
     </section>
     <section class="card"><h3>Historique de mes questions concernant cet enfant</h3><div id="qHistorique"></div></section>
   </div>
+
   <div class="tab-panel" id="panel-documents">
-    <section class="card">
-      <h3>🩺 Fiche de santé</h3>
-      <div class="row"><div><label>Groupe sanguin</label><input id="fsGroupe"></div><div><label>Médecin traitant</label><input id="fsMedecin"></div></div>
-      <label>Allergies</label><input id="fsAllergies">
-      <label>Traitements / remarques médicales</label><textarea id="fsRemarques"></textarea>
-      <div class="btn-row"><button class="btn btn-primary" onclick="sauverDoc('ficheSante')">💾 Enregistrer la fiche de santé</button></div>
+    <section class="card card-accent">
+      <h3>🩺 Fiche santé</h3>
+      <p style="color:var(--gris)">Merci de compléter cette fiche afin de nous permettre de prendre correctement en charge votre enfant lors des réunions, activités et séjours.</p>
+
+      <div class="sous-bloc">
+        <h4 style="margin:0 0 8px">👤 Informations de l'enfant</h4>
+        <div class="row">
+          <div><label>Nom et prénom</label><input id="fsNomPrenom"></div>
+          <div><label>Date de naissance</label><input type="date" id="fsNaissance"></div>
+        </div>
+        <label>Adresse</label><input id="fsAdresse">
+        <label>Téléphone du parent/tuteur</label><input id="fsTelParent">
+      </div>
+
+      <div class="sous-bloc">
+        <h4 style="margin:0 0 8px">🚨 Contact en cas d'urgence</h4>
+        <p class="hint" style="margin-top:0">Prévoir deux personnes.</p>
+        <strong>Personne 1</strong>
+        <div class="row">
+          <div><label>Nom et prénom</label><input id="fsU1Nom"></div>
+          <div><label>Lien avec l'enfant</label><input id="fsU1Lien"></div>
+          <div><label>Téléphone</label><input id="fsU1Tel"></div>
+        </div>
+        <div class="divider"></div>
+        <strong>Personne 2</strong>
+        <div class="row">
+          <div><label>Nom et prénom</label><input id="fsU2Nom"></div>
+          <div><label>Lien avec l'enfant</label><input id="fsU2Lien"></div>
+          <div><label>Téléphone</label><input id="fsU2Tel"></div>
+        </div>
+      </div>
+
+      <div class="sous-bloc">
+        <h4 style="margin:0 0 8px">🩺 Santé</h4>
+
+        <label style="margin-top:0">Votre enfant présente-t-il un problème de santé important à connaître ?</label>
+        <div class="oui-non">
+          <label><input type="radio" name="fsProbleme" value="non" onchange="toggleDetail('fsProbleme','fsProblemeDetailBox')"> Non</label>
+          <label><input type="radio" name="fsProbleme" value="oui" onchange="toggleDetail('fsProbleme','fsProblemeDetailBox')"> Oui</label>
+        </div>
+        <div id="fsProblemeDetailBox" style="display:none"><textarea id="fsProblemeDetail" placeholder="Précisez le problème et les précautions à prendre"></textarea></div>
+
+        <label>Votre enfant a-t-il des allergies ?</label>
+        <div class="oui-non">
+          <label><input type="radio" name="fsAllergie" value="non" onchange="toggleDetail('fsAllergie','fsAllergieDetailBox')"> Non</label>
+          <label><input type="radio" name="fsAllergie" value="oui" onchange="toggleDetail('fsAllergie','fsAllergieDetailBox')"> Oui</label>
+        </div>
+        <div id="fsAllergieDetailBox" style="display:none"><textarea id="fsAllergieDetail" placeholder="Précisez les allergies et les réactions possibles"></textarea></div>
+
+        <label>Votre enfant doit-il suivre un régime alimentaire particulier ?</label>
+        <div class="oui-non">
+          <label><input type="radio" name="fsRegime" value="non" onchange="toggleDetail('fsRegime','fsRegimeDetailBox')"> Non</label>
+          <label><input type="radio" name="fsRegime" value="oui" onchange="toggleDetail('fsRegime','fsRegimeDetailBox')"> Oui</label>
+        </div>
+        <div id="fsRegimeDetailBox" style="display:none"><textarea id="fsRegimeDetail" placeholder="Précisez lequel"></textarea></div>
+
+        <label>Votre enfant prend-il régulièrement des médicaments ?</label>
+        <div class="oui-non">
+          <label><input type="radio" name="fsMedic" value="non" onchange="toggleDetail('fsMedic','fsMedicDetailBox')"> Non</label>
+          <label><input type="radio" name="fsMedic" value="oui" onchange="toggleDetail('fsMedic','fsMedicDetailBox')"> Oui</label>
+        </div>
+        <div id="fsMedicDetailBox" style="display:none">
+          <div class="row">
+            <div><label>Nom du médicament</label><input id="fsMedicNom"></div>
+            <div><label>Dose</label><input id="fsMedicDose"></div>
+            <div><label>Moment de prise</label><input id="fsMedicMoment"></div>
+          </div>
+        </div>
+
+        <label>Y a-t-il une autre information importante que nous devons connaître ?</label>
+        <div class="oui-non">
+          <label><input type="radio" name="fsAutre" value="non" onchange="toggleDetail('fsAutre','fsAutreDetailBox')"> Non</label>
+          <label><input type="radio" name="fsAutre" value="oui" onchange="toggleDetail('fsAutre','fsAutreDetailBox')"> Oui</label>
+        </div>
+        <div id="fsAutreDetailBox" style="display:none"><textarea id="fsAutreDetail" placeholder="Précisez"></textarea></div>
+      </div>
+
+      <div class="sous-bloc">
+        <h4 style="margin:0 0 8px">👨‍⚕️ Médecin</h4>
+        <div class="row">
+          <div><label>Nom du médecin traitant</label><input id="fsMedecinNom"></div>
+          <div><label>Téléphone du médecin</label><input id="fsMedecinTel"></div>
+        </div>
+      </div>
+
+      <div class="btn-row"><button class="btn btn-primary" onclick="sauverFicheSante()">💾 Enregistrer la fiche santé</button></div>
       <p class="hint" id="fsMaj"></p>
     </section>
+
     <section class="card">
       <h3>✅ Autorisation parentale</h3>
       <div class="check"><input type="checkbox" id="apPhoto"> <label style="margin:0">J'autorise la publication de photos de mon enfant</label></div>
       <div class="check"><input type="checkbox" id="apSecours"> <label style="margin:0">J'autorise les premiers secours en cas de besoin</label></div>
-      <label>Personne à contacter en cas d'urgence</label><input id="apUrgence">
-      <div class="btn-row"><button class="btn btn-primary" onclick="sauverDoc('autorisation')">💾 Enregistrer l'autorisation</button></div>
+      <div class="check"><input type="checkbox" id="apMesures"> <label style="margin:0">J'autorise l'équipe d'animation à prendre les mesures nécessaires en cas de problème de santé ou d'urgence concernant mon enfant et à contacter les services médicaux si nécessaire.</label></div>
+      <div class="check"><input type="checkbox" id="apExact"> <label style="margin:0">Je confirme que les informations fournies sont exactes et m'engage à signaler tout changement concernant la santé de mon enfant.</label></div>
+      <div class="check"><input type="checkbox" id="apVoiture"> <label style="margin:0">Je confirme que mon enfant peut monter dans la voiture d'un animateur pour se rendre à une activité.</label></div>
+      <div class="btn-row"><button class="btn btn-primary" onclick="sauverAutorisation()">💾 Enregistrer l'autorisation</button></div>
       <p class="hint" id="apMaj"></p>
     </section>
   </div>
@@ -62,15 +154,26 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   await charger();
 })();
 
+function toggleDetail(radioName, boxId){
+  const val = document.querySelector(`input[name="${radioName}"]:checked`)?.value;
+  document.getElementById(boxId).style.display = val==='oui' ? 'block' : 'none';
+}
+function majCategorieQuestion(){
+  const cat = document.getElementById('qCategorie').value;
+  document.getElementById('qHintSection').style.display = cat==='section' ? 'block' : 'none';
+  document.getElementById('qHintPatro').style.display = cat==='patro' ? 'block' : 'none';
+}
+
 async function charger(){
   try{
     const d = await api('enfants/detail?id='+encodeURIComponent(enfantId));
     ENFANT = d.enfant; SECTION = d.section;
     document.getElementById('filNom').textContent = `${ENFANT.prenom} ${ENFANT.nom}`;
+    document.getElementById('qEnfantNom').textContent = ENFANT.prenom;
     document.getElementById('enteteEnfant').innerHTML = `
       <div class="enfant-avatar" style="background:${SECTION?SECTION.couleur:'#999'};width:64px;height:64px;font-size:1.6rem">${esc(ENFANT.prenom[0].toUpperCase())}</div>
       <div><h2 style="margin:0">${esc(ENFANT.prenom)} ${esc(ENFANT.nom)}</h2>
-      <p class="hint" style="margin:2px 0 0">${SECTION? SECTION.emoji+' '+esc(SECTION.nom)+' • ' : ''}${age(ENFANT.naissance)} ans
+      <p class="hint" style="margin:2px 0 0">${SECTION? SECTION.emoji+' '+esc(SECTION.nom)+' ('+esc(SECTION.tranche)+') • ' : 'Section non définie • '}${age(ENFANT.naissance)} ans
       ${ENFANT.allergies?' • ⚠️ Allergies : '+esc(ENFANT.allergies):''}</p></div>`;
 
     const r = await api('reunions?sectionId='+encodeURIComponent(ENFANT.sectionId||''));
@@ -85,25 +188,45 @@ async function charger(){
           ${c.totem?`<p class="hint">« ${esc(c.totem)} »</p>`:''}
           <p><a href="tel:${esc(c.tel)}" class="chip">📞 ${esc(c.tel||'—')}</a></p>
         </div>`).join('')}</div>`
-      : '<div class="empty">Les chefs de cette section seront communiqués prochainement.</div>';
+      : `<div class="empty">${SECTION ? esc('Les chefs de cette section seront communiqués prochainement.') : esc('La section de cet enfant n\'est pas encore définie — contactez l\'administrateur.')}</div>`;
 
+    // Fiche sante
     const fs = ENFANT.documents?.ficheSante || {};
-    fsGroupe.value=fs.groupe||''; fsMedecin.value=fs.medecin||''; fsAllergies.value=fs.allergies||ENFANT.allergies||''; fsRemarques.value=fs.remarques||ENFANT.remarquesMedicales||'';
+    fsNomPrenom.value = fs.nomPrenom || (ENFANT.prenom+' '+ENFANT.nom);
+    fsNaissance.value = fs.naissance || ENFANT.naissance || '';
+    fsAdresse.value = fs.adresse || ''; fsTelParent.value = fs.telephoneParent || '';
+    fsU1Nom.value = fs.urgence1Nom||''; fsU1Lien.value = fs.urgence1Lien||''; fsU1Tel.value = fs.urgence1Tel||'';
+    fsU2Nom.value = fs.urgence2Nom||''; fsU2Lien.value = fs.urgence2Lien||''; fsU2Tel.value = fs.urgence2Tel||'';
+    setRadio('fsProbleme', fs.problemeSante||'non'); fsProblemeDetail.value = fs.problemeSanteDetail||''; toggleDetail('fsProbleme','fsProblemeDetailBox');
+    setRadio('fsAllergie', fs.allergiesSante||(ENFANT.allergies?'oui':'non')); fsAllergieDetail.value = fs.allergiesDetail||ENFANT.allergies||''; toggleDetail('fsAllergie','fsAllergieDetailBox');
+    setRadio('fsRegime', fs.regime||'non'); fsRegimeDetail.value = fs.regimeDetail||''; toggleDetail('fsRegime','fsRegimeDetailBox');
+    setRadio('fsMedic', fs.medicaments||'non'); fsMedicNom.value=fs.medicamentNom||''; fsMedicDose.value=fs.medicamentDose||''; fsMedicMoment.value=fs.medicamentMoment||''; toggleDetail('fsMedic','fsMedicDetailBox');
+    setRadio('fsAutre', fs.autre||'non'); fsAutreDetail.value = fs.autreDetail||''; toggleDetail('fsAutre','fsAutreDetailBox');
+    fsMedecinNom.value = fs.medecinNom||''; fsMedecinTel.value = fs.medecinTel||'';
     if(fs.updatedAt) document.getElementById('fsMaj').textContent='Dernière mise à jour : '+fmtDateCourt(fs.updatedAt.slice(0,10));
+
     const ap = ENFANT.documents?.autorisation || {};
-    apPhoto.checked = ap.photo ?? ENFANT.photoAutorisee ?? false; apSecours.checked = ap.secours ?? false; apUrgence.value = ap.urgence||'';
+    apPhoto.checked = ap.photo ?? ENFANT.photoAutorisee ?? false;
+    apSecours.checked = ap.secours ?? false;
+    apMesures.checked = ap.mesuresUrgence ?? false;
+    apExact.checked = ap.infosExactes ?? false;
+    apVoiture.checked = ap.voiture ?? false;
     if(ap.updatedAt) document.getElementById('apMaj').textContent='Dernière mise à jour : '+fmtDateCourt(ap.updatedAt.slice(0,10));
 
     await chargerQuestions();
-  }catch(e){ document.getElementById('enteteEnfant').innerHTML = `<div class="alert alert-err">${esc(e.message)}</div>`; }
+  }catch(e){
+    document.getElementById('enteteEnfant').innerHTML = '';
+    document.getElementById('alerteErreur').innerHTML = `<div class="alert alert-err">⚠️ ${esc(e.message)} <br>Retournez sur <a href="mes-enfants.html">Mes enfants</a> et réessayez.</div>`;
+  }
 }
+function setRadio(name, val){ const el = document.querySelector(`input[name="${name}"][value="${val}"]`); if(el) el.checked = true; }
 
 function renderCalendrier(){
   const today = new Date().toISOString().slice(0,10);
   const el = document.getElementById('calendrier');
-  if(!REUNIONS.length){ el.innerHTML = '<div class="empty">Aucune réunion programmée.</div>'; return; }
+  if(!REUNIONS.length){ el.innerHTML = '<div class="empty">Aucune réunion programmée pour le moment.</div>'; return; }
   el.innerHTML = `<div class="table-wrap"><table>
-    <thead><tr><th>Date</th><th>Événement</th><th>Horaire</th><th style="min-width:280px">Présence</th></tr></thead>
+    <thead><tr><th>Date</th><th>Événement</th><th>Horaire</th><th style="min-width:300px">Présence</th></tr></thead>
     <tbody>${[...REUNIONS].sort((a,b)=>a.date.localeCompare(b.date)).map(r=>{
       const p = PRESENCES.find(x=>x.reunionId===r.id);
       const passe = r.date < today;
@@ -116,27 +239,57 @@ function renderCalendrier(){
         <td>${esc(r.heureDebut||'')}–${esc(r.heureFin||'')}<div class="hint">${esc(r.lieu||'')}</div></td>
         <td>
           <div style="display:flex;gap:6px;flex-wrap:wrap">${btn('present','✔ Présent','btn-primary')}${btn('absent','✘ Absent','btn-danger')}${btn('retard','🕐 Retard','btn-jaune')}</div>
-          ${st==='retard' && p.motifRetard? `<div class="hint">Motif : ${esc(p.motifRetard)}</div>`:''}
+          ${st==='retard' ? `<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+              <input type="time" id="heure-${r.id}" value="${p?.heureArrivee||''}" style="width:120px" ${passe?'disabled':''}>
+              <input type="text" id="motif-${r.id}" value="${esc(p?.motifRetard||'')}" placeholder="Motif (facultatif)" style="width:180px" ${passe?'disabled':''}>
+              ${!passe?`<button class="btn btn-ghost btn-sm" onclick="majRetard('${r.id}')">Mettre à jour</button>`:''}
+            </div>` : ''}
           ${passe?'<div class="hint">Réunion passée — réponse verrouillée</div>':''}
         </td></tr>`;
     }).join('')}</tbody></table></div>`;
 }
 async function pointer(reunionId, statut){
-  let motifRetard = '';
-  if(statut==='retard') motifRetard = prompt('Motif du retard (facultatif) :','') || '';
+  let heureArrivee = '', motifRetard = '';
+  if(statut==='retard'){
+    heureArrivee = prompt("Heure d'arrivée prévue (ex: 14:30) :", '14:30') || '';
+    motifRetard = prompt('Motif du retard (facultatif) :','') || '';
+  }
   try{
-    const r = await api('presences',{method:'POST',body:{enfantId,reunionId,statut,motifRetard}});
+    const r = await api('presences',{method:'POST',body:{enfantId,reunionId,statut,motifRetard,heureArrivee}});
     const i = PRESENCES.findIndex(p=>p.reunionId===reunionId);
     if(i>=0) PRESENCES[i]=r; else PRESENCES.push(r);
     toast('Présence enregistrée ✔'); renderCalendrier();
   }catch(e){ toast(e.message,true); }
 }
+async function majRetard(reunionId){
+  const heureArrivee = document.getElementById('heure-'+reunionId).value;
+  const motifRetard = document.getElementById('motif-'+reunionId).value;
+  try{
+    const r = await api('presences',{method:'POST',body:{enfantId,reunionId,statut:'retard',motifRetard,heureArrivee}});
+    const i = PRESENCES.findIndex(p=>p.reunionId===reunionId);
+    if(i>=0) PRESENCES[i]=r; else PRESENCES.push(r);
+    toast('Heure d\'arrivée mise à jour ✔'); renderCalendrier();
+  }catch(e){ toast(e.message,true); }
+}
 
-async function sauverDoc(type){
-  let champs;
-  if(type==='ficheSante') champs = { groupe: fsGroupe.value, medecin: fsMedecin.value, allergies: fsAllergies.value, remarques: fsRemarques.value };
-  else champs = { photo: apPhoto.checked, secours: apSecours.checked, urgence: apUrgence.value };
-  try{ await api('enfants/document',{method:'POST',body:{enfantId,type,champs}}); toast('Document enregistré ✔'); }
+async function sauverFicheSante(){
+  const champs = {
+    nomPrenom: fsNomPrenom.value.trim(), naissance: fsNaissance.value, adresse: fsAdresse.value.trim(), telephoneParent: fsTelParent.value.trim(),
+    urgence1Nom: fsU1Nom.value.trim(), urgence1Lien: fsU1Lien.value.trim(), urgence1Tel: fsU1Tel.value.trim(),
+    urgence2Nom: fsU2Nom.value.trim(), urgence2Lien: fsU2Lien.value.trim(), urgence2Tel: fsU2Tel.value.trim(),
+    problemeSante: document.querySelector('input[name="fsProbleme"]:checked')?.value||'non', problemeSanteDetail: fsProblemeDetail.value.trim(),
+    allergiesSante: document.querySelector('input[name="fsAllergie"]:checked')?.value||'non', allergiesDetail: fsAllergieDetail.value.trim(),
+    regime: document.querySelector('input[name="fsRegime"]:checked')?.value||'non', regimeDetail: fsRegimeDetail.value.trim(),
+    medicaments: document.querySelector('input[name="fsMedic"]:checked')?.value||'non', medicamentNom: fsMedicNom.value.trim(), medicamentDose: fsMedicDose.value.trim(), medicamentMoment: fsMedicMoment.value.trim(),
+    autre: document.querySelector('input[name="fsAutre"]:checked')?.value||'non', autreDetail: fsAutreDetail.value.trim(),
+    medecinNom: fsMedecinNom.value.trim(), medecinTel: fsMedecinTel.value.trim(),
+  };
+  try{ await api('enfants/document',{method:'POST',body:{enfantId,type:'ficheSante',champs}}); toast('Fiche santé enregistrée ✔'); await charger(); }
+  catch(e){ toast(e.message,true); }
+}
+async function sauverAutorisation(){
+  const champs = { photo: apPhoto.checked, secours: apSecours.checked, mesuresUrgence: apMesures.checked, infosExactes: apExact.checked, voiture: apVoiture.checked };
+  try{ await api('enfants/document',{method:'POST',body:{enfantId,type:'autorisation',champs}}); toast('Autorisation enregistrée ✔'); await charger(); }
   catch(e){ toast(e.message,true); }
 }
 
@@ -147,7 +300,7 @@ async function chargerQuestions(){
     document.getElementById('qHistorique').innerHTML = mine.length ? mine.map(q=>`
       <div class="notif-item ${q.statut==='ouverte'?'non-lue':''}">
         <div class="ico-notif">${q.categorie==='section'?'🎯':'🏛️'}</div>
-        <div style="flex:1"><strong>${q.categorie==='section'?'Question de section':'Question générale'}</strong>
+        <div style="flex:1"><strong>${q.categorie==='section'?'Question de section':'Question générale (Patro / événement)'}</strong>
           <p style="margin:4px 0">${esc(q.texte)}</p>
           <p class="hint">${fmtDateCourt(q.date.slice(0,10))} — ${q.statut==='ouverte'?'en attente de réponse':'répondue'}</p>
           ${q.reponses.map(rp=>`<div class="alert alert-ok" style="margin:6px 0 0"><strong>Réponse :</strong> ${esc(rp.texte)}</div>`).join('')}
@@ -155,15 +308,18 @@ async function chargerQuestions(){
   }catch(e){}
 }
 async function poser(){
+  if(!ENFANT){ toast('Chargement en cours, merci de réessayer dans un instant.', true); return; }
   const categorie = document.getElementById('qCategorie').value;
   const texte = document.getElementById('qTexte').value.trim();
   if(!texte) return toast('Merci de rédiger votre question',true);
+  if(categorie==='section' && !ENFANT.sectionId){ toast("La section de cet enfant n'est pas encore définie.", true); return; }
   try{
-    await api('questions',{method:'POST',body:{enfantId, categorie, sectionId: ENFANT.sectionId, texte}});
+    await api('questions',{method:'POST',body:{enfantId, categorie, texte}});
     document.getElementById('qTexte').value='';
     document.getElementById('qMsg').innerHTML = '<div class="alert alert-ok">✅ Question envoyée !</div>';
     await chargerQuestions();
   }catch(e){ document.getElementById('qMsg').innerHTML = `<div class="alert alert-err">${esc(e.message)}</div>`; }
 }
+majCategorieQuestion();
 </script>
 </body></html>

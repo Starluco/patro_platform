@@ -1,23 +1,20 @@
 /**
  * =====================================================================
- *  API du Patro Notre-Dame d'Ittre — v2.1 (correctif connexion + admin)
+ *  API du Patro Notre-Dame d'Ittre — v2.2
  *  Base de donnees : Netlify Blobs (store "patro-db", cle "database")
- *  Routage : cette fonction repond uniquement sur /api/*  (config.path)
+ *  Routage : /api/*  (config.path). Coherence forte (strong) partout.
  * =====================================================================
- *  CORRECTIF v2.1 :
- *  Netlify Blobs utilise par defaut une coherence "eventual" : une lecture
- *  juste apres une ecriture peut renvoyer l'ancienne valeur (jusqu'a 60s de
- *  decalage). C'est exactement ce qui causait le bug "connecte puis
- *  deconnecte immediatement" : la session ecrite au login n'etait pas
- *  encore visible lors de la requete /auth/me suivante.
- *  -> On force desormais `consistency: 'strong'` sur TOUTES les lectures
- *     et sur le store lui-meme, pour garantir la coherence lecture-apres-
- *     ecriture (recommandation officielle Netlify Blobs).
- * =====================================================================
- *  v2.1 : suppression des comptes de demonstration. Seul un compte
- *  administrateur (admin@patro.be) est cree automatiquement. Les comptes
- *  parents et animateurs sont ensuite crees UNIQUEMENT par l'administrateur
- *  via /api/admin/comptes/creer (portail admin).
+ *  CORRECTIF MAJEUR v2.2 :
+ *  Quand une inscription etait validee par l'admin, les enfants en
+ *  attente etaient bien ajoutes a db.enfants MAIS leur champ compteId
+ *  restait a `null` (jamais rattache au compte parent nouvellement
+ *  valide). Consequence : toutes les verifications de droits
+ *  "peutVoirEnfant" (calendrier, chefs de section, documents...)
+ *  echouaient avec "Accès refusé", et le front, ne recevant pas
+ *  l'enfant, plantait ensuite sur `ENFANT.sectionId` (ENFANT == null)
+ *  -> "Cannot read properties of null (reading 'sectionId')".
+ *  -> Corrige : on assigne desormais e.compteId = c.id avant de
+ *     pousser chaque enfant dans db.enfants.
  * =====================================================================
  */
 import { getStore } from '@netlify/blobs';
@@ -26,8 +23,6 @@ import { createHash, randomBytes } from 'node:crypto';
 const STORE = 'patro-db';
 const KEY = 'database';
 
-// Store configure en coherence forte : chaque lecture va a l'origine et
-// reflete immediatement la derniere ecriture (read-your-writes garanti).
 function store() {
   return getStore({ name: STORE, consistency: 'strong' });
 }
@@ -49,21 +44,22 @@ const norm = (s) => String(s || '').trim().toLowerCase();
 const hash = (pwd, salt) => createHash('sha256').update(String(salt) + String(pwd)).digest('hex');
 const today = () => new Date().toISOString().slice(0, 10);
 
+/* ------------------------------------------------------------------ */
+/*  SECTIONS — ages corriges (feedback v2.2)                           */
+/* ------------------------------------------------------------------ */
 const SECTIONS_DEFAUT = [
-  { id: 'bengalis',             nom: 'Bengalis',              tranche: '4-6 ans',  ageMin: 4,  ageMax: 6,  couleur: '#7BC043', emoji: '🐯' },
-  { id: 'benjas',               nom: 'Benjas',                tranche: '6-9 ans',  ageMin: 6,  ageMax: 9,  couleur: '#4CAF50', emoji: '🦊' },
-  { id: 'chevaliers-etincelles',nom: 'Chevaliers-Étincelles', tranche: '9-12 ans', ageMin: 9,  ageMax: 12, couleur: '#F9C80E', emoji: '🐺' },
-  { id: 'conquerants-alpines',  nom: 'Conquérants-Alpines',   tranche: '12-15 ans',ageMin: 12, ageMax: 15, couleur: '#F4A100', emoji: '⛰️' },
-  { id: 'aventuriers',          nom: 'Aventuriers',           tranche: '15-17 ans',ageMin: 15, ageMax: 17, couleur: '#2E7D32', emoji: '🎒' },
-  { id: 'grands',               nom: 'Grands',                tranche: '17+ ans',  ageMin: 17, ageMax: 99, couleur: '#C9A227', emoji: '🔥' },
+  { id: 'bengalis',             nom: 'Bengalis',              tranche: '4-6 ans',   ageMin: 4,  ageMax: 6,  couleur: '#7BC043', emoji: '🐯' },
+  { id: 'benjas',               nom: 'Benjas',                tranche: '6-9 ans',   ageMin: 6,  ageMax: 9,  couleur: '#4CAF50', emoji: '🦊' },
+  { id: 'chevaliers-etincelles',nom: 'Chevaliers-Étincelles', tranche: '9-12 ans',  ageMin: 9,  ageMax: 12, couleur: '#F9C80E', emoji: '🐺' },
+  { id: 'conquerants-alpines',  nom: 'Conquérants-Alpines',   tranche: '12-14 ans', ageMin: 12, ageMax: 14, couleur: '#F4A100', emoji: '⛰️' },
+  { id: 'aventuriers',          nom: 'Aventuriers',           tranche: '14-15 ans', ageMin: 14, ageMax: 15, couleur: '#2E7D32', emoji: '🎒' },
+  { id: 'grands',               nom: 'Grands',                tranche: '15-17 ans', ageMin: 15, ageMax: 17, couleur: '#C9A227', emoji: '🔥' },
 ];
 const TYPES_EVENEMENT = ['reunion', 'souper', 'journee', 'camp'];
 const LABEL_TYPE = { reunion: 'Réunion', souper: 'Souper', journee: 'Journée spéciale', camp: 'Camp' };
 
 /* ------------------------------------------------------------------ */
 /*  Amorce minimale : uniquement le compte administrateur.             */
-/*  Plus aucun compte de demonstration (parent/animateur) : ceux-ci     */
-/*  sont desormais crees exclusivement par l'admin depuis le portail.  */
 /* ------------------------------------------------------------------ */
 function seed() {
   const salt = randomBytes(8).toString('hex');
@@ -76,7 +72,7 @@ function seed() {
   };
 
   const contenu = {
-    patroTexte: "Le Patro est un mouvement de jeunesse belge qui accueille les enfants et les jeunes de 4 à 18 ans et plus, chaque samedi après-midi.\n\n(Ce texte est provisoire : l'administrateur pourra le remplacer depuis l'onglet « Contenu » de l'espace administrateur.)",
+    patroTexte: "Le Patro est un mouvement de jeunesse belge qui accueille les enfants et les jeunes de 4 à 17 ans, chaque samedi après-midi.\n\n(Ce texte est provisoire : l'administrateur pourra le remplacer depuis l'onglet « Contenu » de l'espace administrateur.)",
     infosImportantes: "Les réunions se déroulent tous les samedis de 14h00 à 17h00.\nUn goûter est prévu lors de chaque réunion.\nLe rendez-vous se fait sur le parking en face du « Deli-traiteur », endroit où se trouvent nos locaux.\nLes enfants peuvent venir essayer une réunion pour voir comment cela se déroule.\nLe camp se déroule chaque année aux mêmes dates, du 1er au 10 août.",
     histoire: [
       { id: 'hist_1', date: '1958', titre: "Fondation du Patro Notre-Dame d'Ittre", texteCourt: "Création du groupe par la paroisse d'Ittre.", texteLong: "Texte détaillé à compléter par l'administrateur depuis l'onglet Contenu." },
@@ -99,8 +95,15 @@ async function readDB() {
   }
   if (!db.contenu) db.contenu = seed().contenu;
   if (!db.sections.length) db.sections = SECTIONS_DEFAUT;
-  // garantit qu'il existe toujours au moins un compte admin, meme si la
-  // base a ete modifiee/corrompue manuellement.
+  // Migration douce : si les tranches d'age sont encore les anciennes valeurs,
+  // on les met a jour vers les nouvelles bornes (sans toucher au reste).
+  db.sections = db.sections.map((s) => {
+    const ref = SECTIONS_DEFAUT.find((d) => d.id === s.id);
+    if (ref && (s.ageMin !== ref.ageMin || s.ageMax !== ref.ageMax || s.tranche !== ref.tranche)) {
+      return { ...s, ageMin: ref.ageMin, ageMax: ref.ageMax, tranche: ref.tranche };
+    }
+    return s;
+  });
   if (!db.comptes.some((c) => c.role === 'admin')) {
     const s2 = seed();
     db.comptes.push(s2.comptes[0]);
@@ -165,6 +168,15 @@ function enrichirQuestions(db, list) {
     return { ...q, auteurNom: auteur ? `${auteur.prenom} ${auteur.nom}` : '—', enfantNom: enfant ? `${enfant.prenom} ${enfant.nom}` : null };
   });
 }
+function paiementParDefaut() {
+  return [
+    { id: uid('pay'), type: 'cotisation', label: "Cotisation annuelle (goûters inclus)", montant: 50, paye: false, datePaiement: null, description: '', dateLimite: null },
+    { id: uid('pay'), type: 'camp', label: "Camp d'été", montant: 150, paye: false, datePaiement: null, description: '', dateLimite: null },
+  ];
+}
+function docsParDefaut() {
+  return { ficheSante: null, autorisation: null, autres: [] };
+}
 
 export default async (request, context) => {
   if (request.method === 'OPTIONS') return json({ ok: true });
@@ -200,11 +212,8 @@ export default async (request, context) => {
       const nouveauxEnfants = enfantsForm.map((ef) => ({
         id: uid('enf'), compteId: null, prenom: ef.prenom, nom: ef.nom || nom, naissance: ef.naissance,
         sectionId: ef.sectionId || '', allergies: ef.allergies || '', remarquesMedicales: ef.remarquesMedicales || '',
-        photoAutorisee: !!ef.photoAutorisee, documents: { ficheSante: null, autorisation: null, autres: [] },
-        paiements: [
-          { id: uid('pay'), type: 'cotisation', label: "Cotisation annuelle (goûters inclus)", montant: 50, paye: false, datePaiement: null },
-          { id: uid('pay'), type: 'camp', label: "Camp d'été", montant: 150, paye: false, datePaiement: null },
-        ], createdAt: new Date().toISOString(),
+        photoAutorisee: !!ef.photoAutorisee, documents: docsParDefaut(),
+        paiements: paiementParDefaut(), createdAt: new Date().toISOString(),
       }));
       const compteCree = {
         id: uid('cpt'), email: norm(email), salt, passwordHash: hash(password, salt),
@@ -230,8 +239,6 @@ export default async (request, context) => {
       if (c.statut === 'refuse') return err("Votre demande d'inscription a été refusée. Contactez pndi@patro.be.", 403);
       const token = randomBytes(24).toString('hex');
       db.sessions.push({ token, compteId: c.id, createdAt: new Date().toISOString() });
-      // Ecriture puis relecture forcee en coherence forte (voir store()) :
-      // garantit que la session sera visible des la requete suivante.
       await writeDB(db);
       return json({ token, compte: publicCompte(c), label: labelCompte(db, c) });
     }
@@ -260,21 +267,19 @@ export default async (request, context) => {
     if (route === 'enfants/mes' && request.method === 'GET') return json({ enfants: mesEnfants(db, compte), sections: db.sections });
     if (route === 'enfants/detail' && request.method === 'GET') {
       const e = db.enfants.find((x) => x.id === url.searchParams.get('id'));
-      if (!e || !peutVoirEnfant(db, compte, e)) return err('Accès refusé.', 403);
+      if (!e) return err('Enfant introuvable.', 404);
+      if (!peutVoirEnfant(db, compte, e)) return err('Accès refusé : cet enfant n\'est pas associé à votre compte.', 403);
       const chefs = db.comptes.filter((c) => c.role === 'animateur' && c.sectionId === e.sectionId && c.statut === 'valide')
         .map((c) => ({ id: c.id, prenom: c.prenom, nom: c.nom, tel: c.tel, totem: c.totem }));
       const presencesEnfant = db.presences.filter((p) => p.enfantId === e.id);
-      return json({ enfant: e, section: db.sections.find((s) => s.id === e.sectionId), chefs, presences: presencesEnfant });
+      return json({ enfant: e, section: db.sections.find((s) => s.id === e.sectionId) || null, chefs, presences: presencesEnfant });
     }
     if (route === 'enfants' && request.method === 'POST' && compte.role === 'parent') {
       const ef = body.enfant || {};
       const e = { id: uid('enf'), compteId: compte.id, prenom: ef.prenom, nom: ef.nom || compte.nom,
         naissance: ef.naissance, sectionId: ef.sectionId || '', allergies: ef.allergies || '', remarquesMedicales: ef.remarquesMedicales || '',
-        photoAutorisee: !!ef.photoAutorisee, documents: { ficheSante: null, autorisation: null, autres: [] },
-        paiements: [
-          { id: uid('pay'), type: 'cotisation', label: "Cotisation annuelle (goûters inclus)", montant: 50, paye: false, datePaiement: null },
-          { id: uid('pay'), type: 'camp', label: "Camp d'été", montant: 150, paye: false, datePaiement: null },
-        ], createdAt: new Date().toISOString() };
+        photoAutorisee: !!ef.photoAutorisee, documents: docsParDefaut(),
+        paiements: paiementParDefaut(), createdAt: new Date().toISOString() };
       db.enfants.push(e);
       compte.liens = [...(compte.liens || []), { enfantId: e.id, lien: ef.lien || 'Responsable' }];
       await writeDB(db);
@@ -283,9 +288,15 @@ export default async (request, context) => {
     if (route === 'enfants/document' && request.method === 'POST') {
       const { enfantId, type, champs } = body;
       const e = db.enfants.find((x) => x.id === enfantId);
-      if (!e || !(compte.role === 'admin' || e.compteId === compte.id)) return err('Accès refusé.', 403);
-      if (type === 'autre') { e.documents.autres = e.documents.autres || []; upsert(e.documents.autres, { ...champs, id: champs.id, updatedAt: new Date().toISOString() }, 'doc'); }
-      else e.documents[type] = { ...champs, updatedAt: new Date().toISOString() };
+      if (!e) return err('Enfant introuvable.', 404);
+      if (!(compte.role === 'admin' || e.compteId === compte.id)) return err('Accès refusé.', 403);
+      if (!e.documents) e.documents = docsParDefaut();
+      if (type === 'autre') {
+        e.documents.autres = e.documents.autres || [];
+        upsert(e.documents.autres, { ...champs, id: champs.id, updatedAt: new Date().toISOString() }, 'doc');
+      } else {
+        e.documents[type] = { ...champs, updatedAt: new Date().toISOString() };
+      }
       await writeDB(db);
       return json(e.documents);
     }
@@ -325,14 +336,15 @@ export default async (request, context) => {
       return json({ presences: list });
     }
     if (route === 'presences' && request.method === 'POST') {
-      const { enfantId, reunionId, statut = 'present', motifRetard = '' } = body;
+      const { enfantId, reunionId, statut = 'present', motifRetard = '', heureArrivee = '' } = body;
       const e = db.enfants.find((x) => x.id === enfantId);
-      if (!e || !(compte.role === 'admin' || e.compteId === compte.id)) return err('Accès refusé.', 403);
+      if (!e) return err('Enfant introuvable.', 404);
+      if (!(compte.role === 'admin' || e.compteId === compte.id)) return err('Accès refusé : cet enfant n\'est pas associé à votre compte.', 403);
       const r = db.reunions.find((x) => x.id === reunionId);
       if (r && r.date < today() && compte.role !== 'admin') return err("Impossible de modifier la présence d'une réunion passée.", 403);
       const i = db.presences.findIndex((p) => p.enfantId === enfantId && p.reunionId === reunionId);
-      const rec = { id: uid('pres'), enfantId, reunionId, statut, motifRetard, updatedAt: new Date().toISOString() };
-      if (i >= 0) db.presences[i] = { ...db.presences[i], statut, motifRetard, updatedAt: rec.updatedAt };
+      const rec = { id: uid('pres'), enfantId, reunionId, statut, motifRetard, heureArrivee, updatedAt: new Date().toISOString() };
+      if (i >= 0) db.presences[i] = { ...db.presences[i], statut, motifRetard, heureArrivee, updatedAt: rec.updatedAt };
       else db.presences.push(rec);
       await writeDB(db);
       return json(i >= 0 ? db.presences[i] : rec);
@@ -361,17 +373,31 @@ export default async (request, context) => {
       return json({ manquants: detail, reunion: r });
     }
 
+    /* ---------------- Questions ---------------- */
     if (route === 'questions' && request.method === 'POST') {
       if (compte.role !== 'parent') return err('Seuls les parents peuvent poser une question.', 403);
-      const { enfantId, categorie, sectionId, texte } = body;
+      const { enfantId, categorie, texte } = body;
       if (!texte || !categorie) return err('Catégorie et texte requis.');
-      const q = { id: uid('q'), compteId: compte.id, enfantId: enfantId || null, categorie,
-        sectionId: categorie === 'section' ? (sectionId || (db.enfants.find(e=>e.id===enfantId)||{}).sectionId) : null,
+      let sectionId = null;
+      if (categorie === 'section') {
+        if (!enfantId) return err('Merci de sélectionner un enfant pour une question de section.');
+        const e = db.enfants.find((x) => x.id === enfantId);
+        if (!e || !peutVoirEnfant(db, compte, e)) return err('Enfant introuvable ou non associé à votre compte.', 403);
+        sectionId = e.sectionId || null;
+        if (!sectionId) return err("La section de cet enfant n'est pas encore définie. Contactez l'administrateur.");
+      }
+      const q = { id: uid('q'), compteId: compte.id, enfantId: enfantId || null, categorie, sectionId,
         texte, date: new Date().toISOString(), statut: 'ouverte', reponses: [] };
       db.questions.push(q);
       if (categorie === 'section') {
-        db.comptes.filter((c) => c.role === 'animateur' && c.sectionId === q.sectionId)
-          .forEach((c) => notifier(db, c.id, 'Nouvelle question', `${compte.prenom} ${compte.nom} a posé une question concernant sa section.`, 'questions.html', 'parent'));
+        const dest = db.comptes.filter((c) => c.role === 'animateur' && c.sectionId === sectionId);
+        if (dest.length) {
+          dest.forEach((c) => notifier(db, c.id, 'Nouvelle question', `${compte.prenom} ${compte.nom} a posé une question concernant sa section.`, 'animateur.html', 'parent'));
+        } else {
+          // Pas d'animateur assigne a cette section : on informe quand meme l'admin
+          db.comptes.filter((c) => c.role === 'admin')
+            .forEach((c) => notifier(db, c.id, 'Nouvelle question (section sans animateur)', `${compte.prenom} ${compte.nom} a posé une question de section, mais aucun animateur n'y est encore assigné.`, 'admin.html', 'parent'));
+        }
       } else {
         db.comptes.filter((c) => c.role === 'admin')
           .forEach((c) => notifier(db, c.id, 'Nouvelle question', `${compte.prenom} ${compte.nom} a posé une question générale.`, 'admin.html', 'parent'));
@@ -401,7 +427,7 @@ export default async (request, context) => {
       if (compte.role === 'animateur' && q.sectionId !== compte.sectionId) return err('Accès refusé.', 403);
       q.reponses.push({ compteId: compte.id, role: compte.role, texte: body.texte, date: new Date().toISOString() });
       q.statut = 'repondue';
-      notifier(db, q.compteId, 'Réponse à votre question', body.texte.slice(0, 140), 'questions.html', compte.role);
+      notifier(db, q.compteId, 'Réponse à votre question', body.texte.slice(0, 140), 'mes-enfants.html', compte.role);
       await writeDB(db);
       return json(q);
     }
@@ -419,7 +445,6 @@ export default async (request, context) => {
 
     if (route.startsWith('admin/') && !need('admin')) return err("Accès réservé à l'administrateur.", 403);
 
-    /* ------------- Creation directe de comptes par l'administrateur ------------- */
     if (route === 'admin/comptes/creer' && request.method === 'POST') {
       const { role, prenom, nom, email, password, tel, sectionId, totem, bio, tache,
               adresse, codePostal, localite, contactUrgence, enfants: enfantsForm } = body;
@@ -433,11 +458,8 @@ export default async (request, context) => {
         nouveauxEnfants = enfantsForm.filter((ef) => ef && ef.prenom).map((ef) => ({
           id: uid('enf'), compteId: null, prenom: ef.prenom, nom: ef.nom || nom, naissance: ef.naissance || '',
           sectionId: ef.sectionId || '', allergies: ef.allergies || '', remarquesMedicales: ef.remarquesMedicales || '',
-          photoAutorisee: !!ef.photoAutorisee, documents: { ficheSante: null, autorisation: null, autres: [] },
-          paiements: [
-            { id: uid('pay'), type: 'cotisation', label: "Cotisation annuelle (goûters inclus)", montant: 50, paye: false, datePaiement: null },
-            { id: uid('pay'), type: 'camp', label: "Camp d'été", montant: 150, paye: false, datePaiement: null },
-          ], createdAt: new Date().toISOString(),
+          photoAutorisee: !!ef.photoAutorisee, documents: docsParDefaut(),
+          paiements: paiementParDefaut(), createdAt: new Date().toISOString(),
         }));
       }
 
@@ -451,6 +473,7 @@ export default async (request, context) => {
         createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
       };
       db.comptes.push(nouveauCompte);
+      // CORRECTIF : bien lier chaque enfant au compte qui vient d'etre cree.
       nouveauxEnfants.forEach((e) => { e.compteId = nouveauCompte.id; db.enfants.push(e); });
       await writeDB(db);
       return json(publicCompte(nouveauCompte));
@@ -461,7 +484,12 @@ export default async (request, context) => {
       const c = db.comptes.find((x) => x.id === body.compteId);
       if (!c) return err('Compte introuvable.', 404);
       c.statut = 'valide';
-      (c.enfantsEnAttente || []).forEach((e) => db.enfants.push(e));
+      // CORRECTIF PRINCIPAL (v2.2) : chaque enfant en attente doit etre
+      // rattache au compte du parent AVANT d'etre ajoute a la base.
+      (c.enfantsEnAttente || []).forEach((e) => {
+        e.compteId = c.id;
+        db.enfants.push(e);
+      });
       delete c.enfantsEnAttente;
       notifier(db, c.id, 'Compte validé', 'Votre inscription a été validée. Vous pouvez maintenant vous connecter.', 'connexion.html', 'admin');
       await writeDB(db);
@@ -513,11 +541,7 @@ export default async (request, context) => {
       const e = { id: uid('enf'), compteId: c.id, prenom: enfant.prenom, nom: enfant.nom || c.nom,
         naissance: enfant.naissance || '', sectionId: enfant.sectionId || '', allergies: enfant.allergies || '',
         remarquesMedicales: enfant.remarquesMedicales || '', photoAutorisee: !!enfant.photoAutorisee,
-        documents: { ficheSante: null, autorisation: null, autres: [] },
-        paiements: [
-          { id: uid('pay'), type: 'cotisation', label: "Cotisation annuelle (goûters inclus)", montant: 50, paye: false, datePaiement: null },
-          { id: uid('pay'), type: 'camp', label: "Camp d'été", montant: 150, paye: false, datePaiement: null },
-        ], createdAt: new Date().toISOString() };
+        documents: docsParDefaut(), paiements: paiementParDefaut(), createdAt: new Date().toISOString() };
       db.enfants.push(e);
       c.liens = [...(c.liens || []), { enfantId: e.id, lien: enfant.lien || 'Responsable' }];
       await writeDB(db);
@@ -534,6 +558,51 @@ export default async (request, context) => {
       if (e.compteId) notifier(db, e.compteId, 'Paiement mis à jour', `Le paiement « ${p.label} » de ${e.prenom} a été marqué comme ${p.paye ? 'payé' : 'non payé'}.`, 'profil.html', 'admin');
       await writeDB(db);
       return json(e);
+    }
+    /* -------- Nouveau : liste + creation de paiements (v2.2) -------- */
+    if (route === 'admin/paiements' && request.method === 'GET') {
+      const lignes = [];
+      db.enfants.forEach((e) => {
+        const parent = db.comptes.find((c) => c.id === e.compteId);
+        (e.paiements || []).forEach((p) => {
+          lignes.push({
+            paiementId: p.id, enfantId: e.id, enfantNom: `${e.prenom} ${e.nom}`,
+            sectionId: e.sectionId, parentId: parent ? parent.id : null,
+            parentNom: parent ? `${parent.prenom} ${parent.nom}` : '—',
+            parentEmail: parent ? parent.email : '—',
+            label: p.label, type: p.type, montant: p.montant, paye: p.paye,
+            datePaiement: p.datePaiement, description: p.description || '', dateLimite: p.dateLimite || null,
+          });
+        });
+      });
+      return json({ paiements: lignes, sections: db.sections });
+    }
+    if (route === 'admin/paiements/creer' && request.method === 'POST') {
+      const { titre, montant, description, dateLimite, cible, enfantId, sectionId } = body;
+      if (!titre || montant === undefined || montant === null || montant === '') return err('Titre et montant sont obligatoires.');
+      const m = Number(montant);
+      if (Number.isNaN(m) || m < 0) return err('Montant invalide.');
+      let cibles = [];
+      if (cible === 'enfant') {
+        const e = db.enfants.find((x) => x.id === enfantId);
+        if (!e) return err('Enfant introuvable.', 404);
+        cibles = [e];
+      } else if (cible === 'section') {
+        cibles = db.enfants.filter((e) => e.sectionId === sectionId);
+        if (!cibles.length) return err('Aucun enfant dans cette section.');
+      } else {
+        cibles = db.enfants; // tous
+      }
+      const paiementsCrees = [];
+      cibles.forEach((e) => {
+        const p = { id: uid('pay'), type: 'custom', label: titre, montant: m, paye: false, datePaiement: null,
+          description: description || '', dateLimite: dateLimite || null };
+        e.paiements = [...(e.paiements || []), p];
+        paiementsCrees.push({ enfantId: e.id, paiementId: p.id });
+        if (e.compteId) notifier(db, e.compteId, 'Nouveau paiement à effectuer', `« ${titre} » — ${m} € pour ${e.prenom}${dateLimite ? ` (à régler avant le ${dateLimite})` : ''}.`, 'profil.html', 'admin');
+      });
+      await writeDB(db);
+      return json({ ok: true, nbCrees: paiementsCrees.length });
     }
     if (route === 'admin/notifications/envoyer' && request.method === 'POST') {
       const { enfantId, titre, texte } = body;

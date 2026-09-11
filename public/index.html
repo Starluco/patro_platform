@@ -30,8 +30,11 @@
     <a class="bulle" href="animateurs.html"><span class="emoji-big">🧑‍🏫</span><h3>Qui sont les animateurs ?</h3><p>Par section, avec leurs coordonnées</p></a>
     <a class="bulle" href="histoire.html"><span class="emoji-big">📜</span><h3>Histoire</h3><p>La ligne du temps du Patro d'Ittre</p></a>
     <a class="bulle" href="infos.html"><span class="emoji-big">📌</span><h3>Infos importantes</h3><p>Horaires, lieu, camp...</p></a>
-    <a class="bulle" href="inscription.html" id="bulleInscription"><span class="emoji-big">📝</span><h3>Inscrire mon enfant</h3><p>Créer une demande de compte parent</p></a>
+    <a class="bulle bulle-jaune" href="inscription.html" id="bulleInscription"><span class="emoji-big">📝</span><h3>Inscrire mon enfant</h3><p>Créer une demande de compte parent</p></a>
+    <a class="bulle bulle-jaune" href="connexion.html" id="bulleConnexion"><span class="emoji-big">🔑</span><h3>Connexion</h3><p>Accéder à mon espace personnel</p></a>
+    <a class="bulle bulle-jaune" href="mailto:pndi@patro.be"><span class="emoji-big">📧</span><h3>Contact</h3><p>pndi@patro.be — posez-nous vos questions</p></a>
   </div>
+
   <div id="zonePubliqueSeule">
     <h2 class="page-title" style="margin-top:40px"><span class="ico">🎯</span> Nos sections</h2>
     <p class="page-sub">Chaque enfant rejoint une section adaptée à son âge.</p>
@@ -48,11 +51,12 @@
     document.getElementById('zonePriveeConnectee').style.display = 'block';
     document.getElementById('zonePubliqueSeule').style.display = 'none';
     document.getElementById('bulleInscription').style.display = 'none';
+    document.getElementById('bulleConnexion').style.display = 'none';
     document.getElementById('titreBienvenue').textContent = `Bonjour ${c.prenom} !`;
     document.getElementById('heroActions').innerHTML = `
       <a href="${c.role==='admin'?'admin.html':c.role==='animateur'?'animateur.html':'mes-enfants.html'}" class="btn btn-jaune">
         ${c.role==='admin'?'⚙️ Espace administrateur':c.role==='animateur'?'🧑‍🏫 Mon espace animateur':'👧 Mes enfants'}</a>
-      <a href="profil.html" class="btn btn-ghost" style="border-color:#fff;color:#fff">👤 Mon profil</a>`;
+      <a href="profil.html" class="btn btn-jaune">👤 Mon profil</a>`;
     const raccourcis = c.role === 'admin'
       ? [['admin.html#inscriptions','📋','Inscriptions en attente'],['admin.html#enfants','👧','Tous les enfants'],['admin.html#stats','📊','Statistiques']]
       : c.role === 'animateur'
@@ -64,8 +68,8 @@
   } else {
     document.getElementById('heroActions').innerHTML = `
       <a href="inscription.html" class="btn btn-jaune">📝 Inscrire mon enfant</a>
-      <a href="connexion.html" class="btn btn-ghost" style="border-color:#fff;color:#fff">🔑 J'ai déjà un compte</a>
-      <a href="mailto:pndi@patro.be" class="btn btn-ghost" style="border-color:#fff;color:#fff">📧 pndi@patro.be</a>`;
+      <a href="connexion.html" class="btn btn-jaune">🔑 Connexion</a>
+      <a href="mailto:pndi@patro.be" class="btn btn-hero-outline">📧 Contact</a>`;
     try{
       const { sections } = await api('sections');
       document.getElementById('sections').innerHTML = sections.map(s => `

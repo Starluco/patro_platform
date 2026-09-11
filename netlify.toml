@@ -3,10 +3,6 @@
   functions = "netlify/functions"
   command = "echo 'Site statique + Netlify Functions — rien a builder'"
 
-# La fonction netlify/functions/api.mjs declare elle-meme sa route via
-# `export const config = { path: "/api/*" }`. NE PAS ajouter de [[redirects]]
-# vers /.netlify/functions/api : cela cree un conflit -> 404.
-
 [functions]
   node_bundler = "esbuild"
 

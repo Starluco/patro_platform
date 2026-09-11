@@ -4,7 +4,7 @@
 <title>Fiche enfant (admin) — Patro Notre-Dame d'Ittre</title><link rel="stylesheet" href="assets/style.css"></head>
 <body>
 <main class="container">
-  <p class="fil-ariane"><a href="index.html">🏠 Accueil</a> / <a href="admin.html#enfants">Enfants</a> / <span id="filNom"></span></p>
+  <p class="fil-ariane"><a href="admin.html">🏠 Administration</a> / <a href="admin.html#enfants">Enfants</a> / <span id="filNom"></span></p>
   <div class="card card-accent" id="entete" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><div class="loader"></div></div>
   <div class="grid grid-4" id="stats"></div>
   <div class="grid grid-2">
@@ -40,7 +40,7 @@ async function charger(){
   document.getElementById('entete').innerHTML = `
     <div class="enfant-avatar" style="background:${section?section.couleur:'#999'};width:64px;height:64px;font-size:1.6rem">${esc(ENFANT.prenom[0].toUpperCase())}</div>
     <div><h2 style="margin:0">${esc(ENFANT.prenom)} ${esc(ENFANT.nom)}</h2>
-    <p class="hint" style="margin:2px 0 0">${section?section.emoji+' '+esc(section.nom):'Section non définie'} • ${age(ENFANT.naissance)} ans • né(e) le ${fmtDateCourt(ENFANT.naissance)}
+    <p class="hint" style="margin:2px 0 0">${section?section.emoji+' '+esc(section.nom)+' ('+esc(section.tranche)+')':'Section non définie'} • ${age(ENFANT.naissance)} ans • né(e) le ${fmtDateCourt(ENFANT.naissance)}
     ${ENFANT.allergies?' • ⚠️ '+esc(ENFANT.allergies):''}</p></div>`;
 
   const { presences } = await api('presences?enfantId='+enfantId);
@@ -65,13 +65,15 @@ async function charger(){
       const st = p?p.statut:null;
       return `<tr><td>${fmtDateCourt(r.date)}</td><td>${esc(r.titre)}</td>
         <td>${st==='present'?'<span class="badge badge-ok">Présent</span>':st==='absent'?'<span class="badge badge-ko">Absent</span>':
-              st==='retard'?'<span class="badge badge-jaune">Retard</span>':'<span class="badge badge-neutre">Sans réponse</span>'}</td></tr>`;
+              st==='retard'?`<span class="badge badge-jaune">Retard${p.heureArrivee?' — '+esc(p.heureArrivee):''}</span>`:'<span class="badge badge-neutre">Sans réponse</span>'}</td></tr>`;
     }).join('')}</tbody></table></div>` : '<div class="empty">Aucune réunion passée.</div>';
 
   document.getElementById('paiements').innerHTML = (ENFANT.paiements||[]).map(p=>`
     <div class="paiement-ligne">
       <div><span class="pastille ${p.paye?'pastille-verte':'pastille-rouge'}"></span><strong>${esc(p.label)}</strong> — ${p.montant} €
-      ${p.datePaiement?`<div class="hint">Payé le ${fmtDateCourt(p.datePaiement)}</div>`:''}</div>
+      ${p.description?`<div class="hint">${esc(p.description)}</div>`:''}
+      ${p.datePaiement?`<div class="hint">Payé le ${fmtDateCourt(p.datePaiement)}</div>`:''}
+      ${p.dateLimite && !p.paye?`<div class="hint">À régler avant le ${fmtDateCourt(p.dateLimite)}</div>`:''}</div>
       <button class="btn btn-sm ${p.paye?'btn-danger':'btn-primary'}" onclick="marquerPaiement('${p.id}',${!p.paye})">
         ${p.paye?'Marquer non payé':'Marquer payé'}</button>
     </div>`).join('') || '<div class="empty">Aucun paiement.</div>';
@@ -80,11 +82,18 @@ async function charger(){
   document.getElementById('documents').innerHTML = `
     <div class="grid grid-2">
       <div class="card" style="margin:0">
-        <h4>🩺 Fiche de santé</h4>
-        ${fs.updatedAt ? `<p><strong>Groupe sanguin :</strong> ${esc(fs.groupe||'—')}</p>
-          <p><strong>Médecin :</strong> ${esc(fs.medecin||'—')}</p>
-          <p><strong>Allergies :</strong> ${esc(fs.allergies||'—')}</p>
-          <p><strong>Remarques :</strong> ${esc(fs.remarques||'—')}</p>
+        <h4>🩺 Fiche santé</h4>
+        ${fs.updatedAt ? `
+          <p><strong>Adresse :</strong> ${esc(fs.adresse||'—')}</p>
+          <p><strong>Tél. parent :</strong> ${esc(fs.telephoneParent||'—')}</p>
+          <p><strong>Urgence 1 :</strong> ${esc(fs.urgence1Nom||'—')} (${esc(fs.urgence1Lien||'')}) — ${esc(fs.urgence1Tel||'—')}</p>
+          <p><strong>Urgence 2 :</strong> ${esc(fs.urgence2Nom||'—')} (${esc(fs.urgence2Lien||'')}) — ${esc(fs.urgence2Tel||'—')}</p>
+          <p><strong>Problème de santé :</strong> ${fs.problemeSante==='oui'?'Oui — '+esc(fs.problemeSanteDetail||''):'Non'}</p>
+          <p><strong>Allergies :</strong> ${fs.allergiesSante==='oui'?'Oui — '+esc(fs.allergiesDetail||''):'Non'}</p>
+          <p><strong>Régime alimentaire :</strong> ${fs.regime==='oui'?'Oui — '+esc(fs.regimeDetail||''):'Non'}</p>
+          <p><strong>Médicaments :</strong> ${fs.medicaments==='oui'?`Oui — ${esc(fs.medicamentNom||'')} (${esc(fs.medicamentDose||'')}, ${esc(fs.medicamentMoment||'')})`:'Non'}</p>
+          <p><strong>Autre info :</strong> ${fs.autre==='oui'?'Oui — '+esc(fs.autreDetail||''):'Non'}</p>
+          <p><strong>Médecin :</strong> ${esc(fs.medecinNom||'—')} — ${esc(fs.medecinTel||'—')}</p>
           <p class="hint">Mise à jour le ${fmtDateCourt(fs.updatedAt.slice(0,10))}</p>`
         : '<div class="empty">Non complétée par le parent.</div>'}
       </div>
@@ -92,7 +101,9 @@ async function charger(){
         <h4>✅ Autorisation parentale</h4>
         ${ap.updatedAt ? `<p>Photos : ${ap.photo?'✔ Autorisées':'✘ Non autorisées'}</p>
           <p>Premiers secours : ${ap.secours?'✔ Autorisés':'✘ Non autorisés'}</p>
-          <p>Contact urgence : ${esc(ap.urgence||'—')}</p>
+          <p>Mesures d'urgence / contact services médicaux : ${ap.mesuresUrgence?'✔':'✘'}</p>
+          <p>Informations exactes confirmées : ${ap.infosExactes?'✔':'✘'}</p>
+          <p>Voiture d'un animateur autorisée : ${ap.voiture?'✔':'✘'}</p>
           <p class="hint">Mise à jour le ${fmtDateCourt(ap.updatedAt.slice(0,10))}</p>`
         : '<div class="empty">Non complétée par le parent.</div>'}
       </div>

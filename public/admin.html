@@ -4,21 +4,26 @@
 <title>Administration — Patro Notre-Dame d'Ittre</title><link rel="stylesheet" href="assets/style.css"></head>
 <body>
 <main class="container">
-  <h1 class="page-title"><span class="ico">⚙️</span> Espace administrateur</h1>
+  <div class="page-title-row">
+    <h1 class="page-title"><span class="ico">⚙️</span> Espace administrateur</h1>
+    <button class="btn btn-danger" onclick="deconnecterEtRediriger()">🚪 Se déconnecter</button>
+  </div>
   <div class="grid grid-4" id="stats"></div>
   <div class="tabs">
     <button class="tab active" data-tab="creercompte">➕ Créer un compte</button>
     <button class="tab" data-tab="inscriptions">📋 Inscriptions</button>
     <button class="tab" data-tab="animateurs">🧑‍🏫 Animateurs</button>
-    <button class="tab" data-tab="enfants">👧 Enfants</button>
+    <button class="tab" data-tab="enfants">👦 Enfants</button>
+    <button class="tab" data-tab="paiements">💰 Paiements en attente</button>
     <button class="tab" data-tab="evenement">📅 Créer un événement</button>
     <button class="tab" data-tab="taches">🗂️ Tâches</button>
     <button class="tab" data-tab="rappels">🔔 Rappels</button>
+    <button class="tab" data-tab="questions">💬 Questions</button>
     <button class="tab" data-tab="statsp" data-real="stats">📊 Stats</button>
     <button class="tab" data-tab="contenu">📝 Contenu du site</button>
   </div>
 
-  <!-- Creer un compte (parent ou animateur) -->
+  <!-- Creer un compte -->
   <div class="tab-panel active" id="panel-creercompte">
     <section class="card card-accent">
       <h3>➕ Créer un nouveau compte</h3>
@@ -88,6 +93,41 @@
     </section>
   </div>
 
+  <!-- Paiements en attente (nouveau) -->
+  <div class="tab-panel" id="panel-paiements">
+    <section class="card card-accent">
+      <h3>💰 Créer un nouveau paiement</h3>
+      <div class="row">
+        <div><label>Titre du paiement *</label><input id="pTitre" placeholder="Ex: Camp 2027"></div>
+        <div><label>Prix / montant (€) *</label><input type="number" id="pMontant" placeholder="150"></div>
+        <div><label>Date limite (facultatif)</label><input type="date" id="pDateLimite"></div>
+      </div>
+      <label>Description</label><textarea id="pDescription" placeholder="Ex: Participation au camp annuel du Patro."></textarea>
+      <label>Enfant(s) ou groupe concerné</label>
+      <div class="row">
+        <div><label>Cible</label><select id="pCible" onchange="toggleCiblePaiement()">
+          <option value="tous">Tous les enfants</option>
+          <option value="section">Une section</option>
+          <option value="enfant">Un enfant précis</option>
+        </select></div>
+        <div id="pSectionBox" style="display:none"><label>Section</label><select id="pSection"></select></div>
+        <div id="pEnfantBox" style="display:none"><label>Enfant</label><select id="pEnfant"></select></div>
+      </div>
+      <div class="btn-row"><button class="btn btn-primary" onclick="creerPaiement()">💾 Créer le paiement</button></div>
+      <div id="pMsg"></div>
+    </section>
+    <section class="card">
+      <h3>Paiements en attente</h3>
+      <div class="row">
+        <div><label>Filtrer</label><select id="pFiltre" onchange="renderPaiementsAdmin()">
+          <option value="attente">🔴 En attente uniquement</option>
+          <option value="tous">Tous les paiements</option>
+        </select></div>
+      </div>
+      <div id="listePaiements" style="margin-top:10px"></div>
+    </section>
+  </div>
+
   <div class="tab-panel" id="panel-evenement">
     <section class="card card-accent">
       <h3>📅 Nouvel événement</h3>
@@ -135,6 +175,11 @@
       <label>Réunion</label><select id="rapReunion" onchange="chargerManquants()"></select>
       <div id="manquants" style="margin-top:14px"></div>
     </section>
+  </div>
+
+  <!-- Questions generales (Patro / evenement) -->
+  <div class="tab-panel" id="panel-questions">
+    <section class="card"><h3>💬 Questions générales (Patro / événement)</h3><div id="questionsPatro"></div></section>
   </div>
 
   <div class="tab-panel" id="panel-statsp">
@@ -191,9 +236,10 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   document.getElementById('ccSection').innerHTML = SECTIONS.map(s=>`<option value="${s.id}">${esc(s.nom)}</option>`).join('');
   document.getElementById('statSection').innerHTML = SECTIONS.map(s=>`<option value="${s.id}">${esc(s.nom)}</option>`).join('');
   document.getElementById('evSections').innerHTML = SECTIONS.map(s=>`<label class="check" style="margin:0"><input type="checkbox" class="evSec" value="${s.id}"> ${esc(s.nom)}</label>`).join('');
+  document.getElementById('pSection').innerHTML = SECTIONS.map(s=>`<option value="${s.id}">${esc(s.nom)}</option>`).join('');
 
   ajouterEnfantCC();
-  await Promise.all([chargerInscriptions(), chargerComptes(), chargerEnfants(), chargerTaches(), chargerContenu(), chargerReunionsRappel()]);
+  await Promise.all([chargerInscriptions(), chargerComptes(), chargerEnfants(), chargerTaches(), chargerContenu(), chargerReunionsRappel(), chargerPaiementsAdmin(), chargerQuestionsPatro()]);
   await chargerStats();
   renderStatsHeader();
 
@@ -330,6 +376,7 @@ async function chargerEnfants(){
     const n = ENFANTS.filter(e=>e.sectionId===s.id).length;
     return `<div class="stat" style="border-left-color:${s.couleur}"><div class="val">${n}</div><div class="lbl">${s.emoji} ${esc(s.nom)}</div></div>`;
   }).join('');
+  document.getElementById('pEnfant').innerHTML = ENFANTS.map(e=>`<option value="${e.id}">${esc(e.prenom)} ${esc(e.nom)}</option>`).join('');
   renderEnfants();
 }
 function renderEnfants(){
@@ -345,11 +392,61 @@ function renderEnfants(){
         return `<tr>
           <td><a href="admin-enfant.html?id=${e.id}"><strong>${esc(e.prenom)} ${esc(e.nom)}</strong></a></td>
           <td>${s?esc(s.nom):'—'}</td><td>${age(e.naissance)} ans</td>
-          <td>${cot?`<span class="badge ${cot.paye?'badge-ok':'badge-ko'}">${cot.paye?'✔':'✘'} ${cot.montant}€</span>`:'—'}</td>
-          <td>${camp?`<span class="badge ${camp.paye?'badge-ok':'badge-ko'}">${camp.paye?'✔':'✘'} ${camp.montant}€</span>`:'—'}</td>
+          <td>${cot?`<span class="badge ${cot.paye?'badge-ok':'badge-ko'}">${cot.paye?'🟢':'🔴'} ${cot.montant}€</span>`:'—'}</td>
+          <td>${camp?`<span class="badge ${camp.paye?'badge-ok':'badge-ko'}">${camp.paye?'🟢':'🔴'} ${camp.montant}€</span>`:'—'}</td>
           <td><a class="btn btn-ghost btn-sm" href="admin-enfant.html?id=${e.id}">Voir la fiche →</a></td>
         </tr>`;
       }).join('')}</tbody></table></div>` : '<div class="empty">Aucun enfant.</div>';
+}
+
+/* ---------- Paiements en attente (nouveau) ---------- */
+let PAIEMENTS_ADMIN = [];
+function toggleCiblePaiement(){
+  const c = document.getElementById('pCible').value;
+  document.getElementById('pSectionBox').style.display = c==='section' ? 'block' : 'none';
+  document.getElementById('pEnfantBox').style.display = c==='enfant' ? 'block' : 'none';
+}
+async function creerPaiement(){
+  const body = {
+    titre: v('pTitre'), montant: document.getElementById('pMontant').value,
+    description: document.getElementById('pDescription').value.trim(),
+    dateLimite: document.getElementById('pDateLimite').value || null,
+    cible: document.getElementById('pCible').value,
+    sectionId: document.getElementById('pSection').value, enfantId: document.getElementById('pEnfant').value,
+  };
+  if(!body.titre || !body.montant) return toast('Titre et montant sont obligatoires',true);
+  try{
+    const r = await api('admin/paiements/creer',{method:'POST',body});
+    document.getElementById('pMsg').innerHTML = `<div class="alert alert-ok">✅ Paiement créé pour ${r.nbCrees} enfant(s).</div>`;
+    ['pTitre','pMontant','pDescription','pDateLimite'].forEach(id=>document.getElementById(id).value='');
+    await chargerPaiementsAdmin(); renderStatsHeader();
+  }catch(e){ document.getElementById('pMsg').innerHTML = `<div class="alert alert-err">${esc(e.message)}</div>`; }
+}
+async function chargerPaiementsAdmin(){
+  const { paiements } = await api('admin/paiements');
+  PAIEMENTS_ADMIN = paiements;
+  renderPaiementsAdmin();
+}
+function renderPaiementsAdmin(){
+  const filtre = document.getElementById('pFiltre').value;
+  let list = PAIEMENTS_ADMIN;
+  if(filtre==='attente') list = list.filter(p=>!p.paye);
+  document.getElementById('listePaiements').innerHTML = list.length ? `
+    <div class="table-wrap"><table>
+      <thead><tr><th>Parent</th><th>Enfant</th><th>Paiement</th><th>Montant</th><th>Statut</th><th></th></tr></thead>
+      <tbody>${list.map(p=>`<tr>
+        <td>${esc(p.parentNom)}<div class="hint">${esc(p.parentEmail)}</div></td>
+        <td>${esc(p.enfantNom)}</td>
+        <td><strong>${esc(p.label)}</strong>${p.description?`<div class="hint">${esc(p.description)}</div>`:''}${p.dateLimite?`<div class="hint">Avant le ${fmtDateCourt(p.dateLimite)}</div>`:''}</td>
+        <td>${p.montant} €</td>
+        <td>${p.paye?'<span class="badge badge-ok">🟢 Payé</span>':'<span class="badge badge-ko">🔴 En attente</span>'}</td>
+        <td><button class="btn btn-sm ${p.paye?'btn-danger':'btn-primary'}" onclick="toggleStatutPaiement('${p.enfantId}','${p.paiementId}',${!p.paye})">
+          ${p.paye?'Marquer non payé':'Marquer payé'}</button></td>
+      </tr>`).join('')}</tbody></table></div>` : '<div class="empty"><span class="big">🎉</span>Aucun paiement en attente.</div>';
+}
+async function toggleStatutPaiement(enfantId, paiementId, paye){
+  try{ await api('admin/paiements/marquer',{method:'POST',body:{enfantId,paiementId,paye}}); toast('Paiement mis à jour ✔'); await chargerPaiementsAdmin(); renderStatsHeader(); }
+  catch(e){ toast(e.message,true); }
 }
 
 function toggleSections(){ document.getElementById('evSections').style.display = document.getElementById('evToutes').checked ? 'none':'flex'; }
@@ -410,6 +507,28 @@ async function envoyerRappel(reunionId){
   toast(`Rappel envoyé à ${r.nbRappels} parent(s) ✔`); await chargerManquants();
 }
 
+/* ---------- Questions generales (patro) ---------- */
+async function chargerQuestionsPatro(){
+  const { questions } = await api('questions/patro');
+  document.getElementById('questionsPatro').innerHTML = questions.length ? questions.map(q=>`
+    <div class="notif-item ${q.statut==='ouverte'?'non-lue':''}">
+      <div class="ico-notif">🏛️</div>
+      <div style="flex:1">
+        <strong>${esc(q.auteurNom)}</strong>${q.enfantNom?` (parent de ${esc(q.enfantNom)})`:''}
+        <p style="margin:4px 0">${esc(q.texte)}</p>
+        <p class="hint">${fmtDateCourt(q.date.slice(0,10))} — ${q.statut==='ouverte'?'en attente de réponse':'répondue'}</p>
+        ${q.reponses.map(r=>`<div class="alert alert-ok" style="margin:6px 0">Réponse : ${esc(r.texte)}</div>`).join('')}
+        ${q.statut==='ouverte'?`<div style="margin-top:8px"><textarea id="repP-${q.id}" placeholder="Votre réponse..." style="min-height:70px"></textarea>
+          <button class="btn btn-primary btn-sm" style="margin-top:6px" onclick="repondrePatro('${q.id}')">Répondre</button></div>`:''}
+      </div></div>`).join('') : '<div class="empty">Aucune question générale pour le moment.</div>';
+}
+async function repondrePatro(id){
+  const texte = document.getElementById('repP-'+id).value.trim();
+  if(!texte) return toast('Merci de rédiger une réponse',true);
+  try{ await api('questions/repondre',{method:'POST',body:{questionId:id,texte}}); toast('Réponse envoyée ✔'); await chargerQuestionsPatro(); }
+  catch(e){ toast(e.message,true); }
+}
+
 let STATS=null;
 async function chargerStats(){
   const annee = document.getElementById('statAnnee').value || new Date().getFullYear();
@@ -460,5 +579,6 @@ async function saveHistoire(){
 async function delHistoire(id){ if(!confirm('Supprimer cet événement historique ?'))return; await api('admin/histoire/delete',{method:'POST',body:{id}}); toast('Supprimé'); await chargerContenu(); }
 
 function v(id){ return document.getElementById(id).value.trim(); }
+toggleCiblePaiement();
 </script>
 </body></html>

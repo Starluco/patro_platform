@@ -4,7 +4,10 @@
 <title>Mon profil — Patro Notre-Dame d'Ittre</title><link rel="stylesheet" href="assets/style.css"></head>
 <body>
 <main class="container">
-  <h1 class="page-title"><span class="ico">👤</span> Mon profil</h1>
+  <div class="page-title-row">
+    <h1 class="page-title"><span class="ico">👤</span> Mon profil</h1>
+    <button class="btn btn-danger" onclick="deconnecterEtRediriger()">🚪 Se déconnecter</button>
+  </div>
   <div class="card card-accent" id="carteProfil" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><div class="loader"></div></div>
   <div class="tabs">
     <button class="tab active" data-tab="notifications">🔔 Notifications</button>
@@ -35,7 +38,7 @@
       <div class="row"><div><label>Code postal</label><input id="cCP"></div><div><label>Localité</label><input id="cLocalite"></div></div>
       <div class="btn-row"><button class="btn btn-primary" onclick="sauverCompte()">💾 Mettre à jour</button></div>
     </section>
-    <div class="btn-row"><button class="btn btn-ghost" onclick="deconnexion()">🚪 Se déconnecter</button></div>
+    <div class="btn-row"><button class="btn btn-danger" onclick="deconnecterEtRediriger()">🚪 Se déconnecter</button></div>
   </div>
 </main>
 <script src="assets/app.js"></script>
@@ -98,8 +101,10 @@ function renderPaiements(){
       ${(e.paiements||[]).map(p=>`
         <div class="paiement-ligne">
           <div><span class="pastille ${p.paye?'pastille-verte':'pastille-rouge'}"></span>
-            <strong>${esc(p.label)}</strong> — ${p.montant} €</div>
-          <span class="badge ${p.paye?'badge-ok':'badge-ko'}">${p.paye?'✔ Payé':'✘ Non payé'}</span>
+            <strong>${esc(p.label)}</strong> — ${p.montant} €
+            ${p.description?`<div class="hint">${esc(p.description)}</div>`:''}
+            ${p.dateLimite?`<div class="hint">À régler avant le ${fmtDateCourt(p.dateLimite)}</div>`:''}</div>
+          <span class="badge ${p.paye?'badge-ok':'badge-ko'}">${p.paye?'🟢 Payé':'🔴 En attente'}</span>
         </div>`).join('') || '<div class="empty">Aucun paiement enregistré.</div>'}
     </section>`).join('');
 }
@@ -110,7 +115,7 @@ function renderDocs(){
     const fs = e.documents?.ficheSante || {}; const ap = e.documents?.autorisation || {};
     return `<section class="card">
       <h3>${esc(e.prenom)} ${esc(e.nom)}</h3>
-      <p class="hint">🩺 Fiche de santé : ${fs.updatedAt?('mise à jour le '+fmtDateCourt(fs.updatedAt.slice(0,10))):'<span class="badge badge-jaune">à compléter</span>'}</p>
+      <p class="hint">🩺 Fiche santé : ${fs.updatedAt?('mise à jour le '+fmtDateCourt(fs.updatedAt.slice(0,10))):'<span class="badge badge-jaune">à compléter</span>'}</p>
       <p class="hint">✅ Autorisation parentale : ${ap.updatedAt?('mise à jour le '+fmtDateCourt(ap.updatedAt.slice(0,10))):'<span class="badge badge-jaune">à compléter</span>'}</p>
       <div class="btn-row"><a class="btn btn-primary btn-sm" href="enfant.html?id=${e.id}#documents">📄 Gérer les documents</a></div>
     </section>`;
@@ -128,6 +133,5 @@ async function sauverCompte(){
   }catch(e){ toast(e.message,true); }
 }
 function v(id){ return document.getElementById(id).value.trim(); }
-function deconnexion(){ api('auth/logout',{method:'POST'}).catch(()=>{}); session.clear(); location.href='index.html'; }
 </script>
 </body></html>
