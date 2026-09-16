@@ -38,7 +38,7 @@
         <button class="btn btn-ghost" onclick="resetForm()">Annuler</button>
       </div>
     </section>
-    <section class="card"><h3>Calendrier de ma section</h3><div id="listeReunions"></div></section>
+    <section class="card"><h3>Calendrier de ma section</h3><p class="hint">Cliquez sur « ✏️ » pour modifier un événement déjà créé.</p><div id="listeReunions"></div></section>
   </div>
   <div class="tab-panel" id="panel-presences">
     <section class="card"><h3>✅ Tableau des présences</h3><div id="tablPresences"><div class="loader"></div></div></section>
@@ -71,6 +71,8 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   await chargerPresences();
   await chargerQuestions();
   const hash = location.hash.replace('#',''); if(hash) document.querySelector(`.tab[data-tab="${hash}"]`)?.click();
+  const eventId = new URLSearchParams(location.search).get('event');
+  if(eventId){ document.getElementById('reunion-'+eventId)?.scrollIntoView({behavior:'smooth',block:'center'}); }
 })();
 
 async function chargerReunions(){
@@ -79,12 +81,12 @@ async function chargerReunions(){
   document.getElementById('listeReunions').innerHTML = REUNIONS.length ? `
     <div class="table-wrap"><table>
       <thead><tr><th>Date</th><th>Titre</th><th>Type</th><th>Horaire</th><th></th></tr></thead>
-      <tbody>${REUNIONS.map(r=>`<tr>
+      <tbody>${REUNIONS.map(r=>`<tr id="reunion-${r.id}">
         <td>${fmtDateCourt(r.date)}${r.dateFin?`<div class="hint">→ ${fmtDateCourt(r.dateFin)}</div>`:''}</td>
         <td><strong>${esc(r.titre)}</strong>${r.description?`<div class="hint">${esc(r.description)}</div>`:''}</td>
         <td>${TYPE_LABEL[r.type]||r.type}</td>
         <td>${esc(r.heureDebut||'')}–${esc(r.heureFin||'')}<div class="hint">${esc(r.lieu||'')}</div></td>
-        <td><button class="btn btn-ghost btn-sm" onclick="editReunion('${r.id}')">✏️</button>
+        <td><button class="btn btn-ghost btn-sm" onclick="editReunion('${r.id}')">✏️ Modifier</button>
             <button class="btn btn-danger btn-sm" onclick="delReunion('${r.id}')">🗑️</button></td>
       </tr>`).join('')}</tbody></table></div>` : '<div class="empty">Aucune réunion programmée pour ma section.</div>';
 }
@@ -102,7 +104,7 @@ async function saveReunion(){
   const reunion = { id: reId.value||undefined, titre: v('reTitre'), type: reType.value, date: v('reDate'),
     dateFin: v('reDateFin')||null, heureDebut: v('reDebut'), heureFin: v('reFin'), lieu: v('reLieu'), description: reDescription.value.trim() };
   if(!reunion.titre||!reunion.date) return toast('Titre et date requis',true);
-  try{ await api('reunions',{method:'POST',body:{reunion}}); toast('Réunion enregistrée ✔'); resetForm(); await chargerReunions(); await chargerPresences(); }
+  try{ await api('reunions',{method:'POST',body:{reunion}}); toast(reunion.id?'Réunion modifiée ✔':'Réunion enregistrée ✔'); resetForm(); await chargerReunions(); await chargerPresences(); }
   catch(e){ toast(e.message,true); }
 }
 async function delReunion(id){
@@ -128,7 +130,7 @@ async function chargerPresences(){
 async function chargerQuestions(){
   const { questions } = await api('questions/section');
   document.getElementById('questions').innerHTML = questions.length ? questions.map(q=>`
-    <div class="notif-item ${q.statut==='ouverte'?'non-lue':''}">
+    <div class="notif-item ${q.statut==='ouverte'?'non-lue':''}" style="cursor:default">
       <div class="ico-notif">❓</div>
       <div style="flex:1">
         <strong>${esc(q.auteurNom)}</strong>${q.enfantNom?` (parent de ${esc(q.enfantNom)})`:''}

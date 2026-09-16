@@ -1,99 +1,49 @@
-# 🌳 Patro Notre-Dame d'Ittre — v2.2.0
+# 🌳 Patro Notre-Dame d'Ittre — v2.3.0
 
-## 🐛 Correctifs de cette version (feedback utilisateur)
+## Nouveautés / corrections de cette version
 
-### 1. Tuiles "Connexion" et "Contact" illisibles (blanc sur blanc)
-Le bouton `.btn-ghost` définit un fond blanc, or il était utilisé avec un texte blanc
-en surcharge sur le bandeau vert -> texte invisible. Corrigé :
-- Ajout de deux nouvelles bulles jaunes sur la page d'accueil : **🔑 Connexion** et **📧 Contact**
-  (même style que « Inscrire mon enfant »).
-- Les boutons du bandeau (hero) utilisent désormais soit `.btn-jaune` (jaune, lisible),
-  soit une nouvelle classe `.btn-hero-outline` (transparent + bordure blanche, lisible sur fond vert).
-- Le bouton « Mon profil » (utilisateur connecté) est également passé en jaune pour rester lisible.
+### 1. Modification des événements (admin)
+Onglet **📅 Créer un événement** permet aussi de modifier : chaque événement listé
+propose un bouton « ✏️ Modifier » qui pré-remplit le formulaire (titre, date, heure,
+sections, description, type). L'enregistrement réutilise la même route API
+(`admin/evenement`) avec l'`id` de l'événement existant. Une case à cocher
+« Notifier les parents et animateurs concernés » apparaît uniquement en mode
+modification. Les changements sont immédiatement visibles dans tous les calendriers
+concernés (mêmes données lues par `enfant.html` et `animateur.html`).
 
-### 2. Âges des sections corrigés
-- Conquérants-Alpines : **12–14 ans**
-- Aventuriers : **14–15 ans**
-- Grands : **15–17 ans**
+### 2. Notifications cliquables
+Chaque notification stockée porte un champ `lien` **précis** :
+- Événement → `enfant.html?id=...&event=...#calendrier` (parent) ou `animateur.html?event=...#calendrier`
+- Paiement → `profil.html?enfant=...#paiements`
+- Question / réponse → `enfant.html?id=...#questions`
+- Modification d'un enfant → `enfant.html?id=...`
 
-Ces tranches viennent d'une seule source (`sections` dans l'API) : elles sont donc
-automatiquement cohérentes partout (page publique, animateurs, profils enfants, admin).
-Une migration douce mnet à jour les tranches même sur une base déjà existante.
+Sur `profil.html`, chaque notification est un lien cliquable : le clic marque la
+notification comme lue (`notifications/lire`) puis redirige immédiatement vers la
+page concernée, qui met en évidence l'élément visé (surlignage + scroll automatique).
 
-### 3. Calendrier parent — « Accès refusé » CORRIGÉ À LA SOURCE
-**Cause réelle** : lorsqu'une inscription était validée par l'administrateur, les
-enfants étaient ajoutés à la base mais leur champ `compteId` restait à `null` (jamais
-rattaché au compte du parent). Toutes les vérifications de droits (calendrier, chefs
-de section, documents) échouaient donc avec « Accès refusé », et le front plantait
-ensuite avec `Cannot read properties of null (reading 'sectionId')` puisque l'enfant
-n'était jamais chargé.
+### 3 & 4. Choix du type de compte (connexion + inscription)
+`connexion.html` et `inscription.html` démarrent par un choix explicite
+**👨‍👩‍👧 Parent** / **🧑‍🏫 Animateur** avant d'afficher le formulaire. Un compte
+animateur ne demande jamais d'informations sur des enfants (le bloc est masqué).
+À la connexion, si le type de compte choisi ne correspond pas au rôle réel du compte,
+un message clair l'indique (l'administrateur peut se connecter depuis les deux écrans).
 
-**Corrigé** : `admin/inscriptions/valider` assigne désormais `e.compteId = c.id`
-à chaque enfant avant de l'ajouter à la base. Le calendrier fonctionne maintenant :
-présent / absent / retard **+ heure d'arrivée prévue en cas de retard**, modifiable
-tant que la réunion n'est pas passée. Les réponses sont visibles par les animateurs
-de la section et les administrateurs (déjà exposé via `presences/agregat` et le détail
-enfant côté admin).
-
-### 4. Fiche santé complète (nouveau)
-Nouveau formulaire complet dans **Documents** de la fiche enfant : informations de
-l'enfant, 2 contacts d'urgence structurés, problème de santé / allergies / régime /
-médicaments / autre info (chacun en Oui-Non + détail), médecin traitant. L'ancienne
-autorisation parentale est conservée intégralement (photos, premiers secours) et
-enrichie de 3 nouvelles cases : mesures d'urgence, exactitude des informations,
-autorisation de transport en voiture par un animateur.
-
-### 5 & 6. Questions — erreurs `sectionId` corrigées
-Conséquence directe du correctif n°3 (l'enfant se charge maintenant correctement).
-En plus :
-- Catégorie « Patro / événement » : plus aucune section requise, la question part
-  directement à l'administrateur (visible dans l'onglet **💬 Questions** de l'admin).
-- Catégorie « Ma section » : la section est *toujours* dérivée automatiquement de
-  l'enfant sélectionné, côté serveur — le parent n'a jamais à la choisir.
-- Garde-fou ajouté : si l'enfant n'est pas encore chargé, un message clair s'affiche
-  au lieu de planter.
-
-### 7. « Les chefs de ma section » — corrigé (même cause que le n°3)
-
-### 8. Espace administrateur
-L'onglet « 🏠 Accueil » a été retiré de la navigation admin. Après connexion,
-l'administrateur reste dans son espace (`admin.html` / `profil.html`).
-
-### 9. Déconnexion renforcée
-Bouton « 🚪 Se déconnecter » visible directement dans `profil.html`, `animateur.html`
-et `admin.html`, ainsi que dans la barre de navigation de toutes les pages privées.
-La déconnexion utilise `location.replace()` (pas de retour en arrière possible vers
-la page privée) et un gestionnaire `pageshow` recharge automatiquement toute page
-restaurée depuis le cache du navigateur (bfcache), ce qui déclenche une nouvelle
-vérification d'authentification et coupe l'accès si la session n'est plus valide.
-
-### 10. Vérification des relations Parent → Enfant → Section → Animateurs
-Toute la chaîne de droits repose maintenant sur une seule source de vérité fiable :
-`enfant.compteId` (toujours renseigné, quel que soit le mode de création — inscription
-publique validée, ajout direct par le parent, ou création directe par l'admin).
-
-## ✨ Nouvelle fonctionnalité : Paiements en attente (admin)
-
-Nouvel onglet **💰 Paiements en attente** dans l'espace administrateur :
-- Liste tous les paiements (avec filtre « en attente uniquement » / « tous »), avec
-  parent, enfant, libellé, montant et statut 🟢/🔴.
-- Formulaire de création d'un nouveau paiement : titre, montant, description, date
-  limite (facultative), et ciblage (tous les enfants / une section / un enfant précis).
-- Le paiement créé apparaît automatiquement dans le profil du ou des parents concernés,
-  avec une notification.
+### 5. Suppression d'un animateur
+Dans **Animateurs → Équipe par section**, chaque animateur dispose d'un bouton
+« 🗑️ Supprimer » avec une confirmation explicite reprenant son nom. La suppression
+retire uniquement le compte et ses sessions actives (`admin/comptes/supprimer`) :
+les réunions, présences et questions déjà enregistrées restent intactes, conformément
+à la demande de ne jamais perdre l'historique.
 
 ## 🔑 Connexion administrateur
-
 | Rôle | E-mail | Mot de passe |
 |---|---|---|
 | Administrateur | `admin@patro.be` | `Ster2014` |
 
 ## 🚀 Déploiement
-
 ```bash
 git add .
-git commit -m "v2.2.0 : corrections majeures (compteId, tuiles, questions, deconnexion) + paiements admin"
+git commit -m "v2.3.0 : modification événements, notifications cliquables, choix parent/animateur, suppression animateur"
 git push
 ```
-
-Netlify redéploiera automatiquement.

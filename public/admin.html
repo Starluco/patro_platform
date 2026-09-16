@@ -23,7 +23,6 @@
     <button class="tab" data-tab="contenu">📝 Contenu du site</button>
   </div>
 
-  <!-- Creer un compte -->
   <div class="tab-panel active" id="panel-creercompte">
     <section class="card card-accent">
       <h3>➕ Créer un nouveau compte</h3>
@@ -81,7 +80,7 @@
       </div>
       <div class="btn-row"><button class="btn btn-primary" onclick="attribuer()">💾 Enregistrer</button></div>
     </section>
-    <section class="card"><h3>Équipe par section</h3><div id="listeAnimateurs"></div></section>
+    <section class="card"><h3>Équipe par section</h3><p class="hint">Cliquez sur « 🗑️ Supprimer » pour retirer l'accès d'un animateur (les données historiques sont conservées).</p><div id="listeAnimateurs"></div></section>
     <section class="card"><h3>Tous les comptes</h3><div id="listeComptes"></div></section>
   </div>
 
@@ -93,7 +92,6 @@
     </section>
   </div>
 
-  <!-- Paiements en attente (nouveau) -->
   <div class="tab-panel" id="panel-paiements">
     <section class="card card-accent">
       <h3>💰 Créer un nouveau paiement</h3>
@@ -130,7 +128,8 @@
 
   <div class="tab-panel" id="panel-evenement">
     <section class="card card-accent">
-      <h3>📅 Nouvel événement</h3>
+      <h3 id="evFormTitre">📅 Nouvel événement</h3>
+      <input type="hidden" id="evId">
       <div class="row">
         <div><label>Nom de l'événement *</label><input id="evTitre"></div>
         <div><label>Type *</label><select id="evType">
@@ -149,8 +148,14 @@
       <label>Sections concernées</label>
       <div class="check"><input type="checkbox" id="evToutes" checked onchange="toggleSections()"> <label style="margin:0">Toutes les sections</label></div>
       <div id="evSections" style="display:none;flex-wrap:wrap;gap:12px;margin-top:6px"></div>
-      <div class="btn-row"><button class="btn btn-primary" onclick="creerEvenement()">🚀 Créer l'événement</button></div>
+      <div class="check" id="evNotifierBox" style="display:none"><input type="checkbox" id="evNotifier">
+        <label style="margin:0">Envoyer une notification aux parents et animateurs concernés pour les prévenir de cette modification</label></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="enregistrerEvenement()" id="evBtnSubmit">🚀 Créer l'événement</button>
+        <button class="btn btn-ghost" onclick="resetEvenementForm()">Annuler</button>
+      </div>
     </section>
+    <section class="card"><h3>Tous les événements</h3><p class="hint">Cliquez sur « ✏️ Modifier » pour changer nom, date, heure, sections, description ou type.</p><div id="listeEvenements"></div></section>
   </div>
 
   <div class="tab-panel" id="panel-taches">
@@ -177,7 +182,6 @@
     </section>
   </div>
 
-  <!-- Questions generales (Patro / evenement) -->
   <div class="tab-panel" id="panel-questions">
     <section class="card"><h3>💬 Questions générales (Patro / événement)</h3><div id="questionsPatro"></div></section>
   </div>
@@ -219,7 +223,7 @@
 </main>
 <script src="assets/app.js"></script>
 <script>
-let SECTIONS=[], COMPTES=[], ENFANTS=[];
+let SECTIONS=[], COMPTES=[], ENFANTS=[], EVENEMENTS=[];
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));
@@ -239,7 +243,7 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   document.getElementById('pSection').innerHTML = SECTIONS.map(s=>`<option value="${s.id}">${esc(s.nom)}</option>`).join('');
 
   ajouterEnfantCC();
-  await Promise.all([chargerInscriptions(), chargerComptes(), chargerEnfants(), chargerTaches(), chargerContenu(), chargerReunionsRappel(), chargerPaiementsAdmin(), chargerQuestionsPatro()]);
+  await Promise.all([chargerInscriptions(), chargerComptes(), chargerEnfants(), chargerTaches(), chargerContenu(), chargerReunionsRappel(), chargerPaiementsAdmin(), chargerQuestionsPatro(), chargerEvenements()]);
   await chargerStats();
   renderStatsHeader();
 
@@ -247,7 +251,6 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   if(hash){ const btn = [...document.querySelectorAll('.tab')].find(t=>(t.dataset.real||t.dataset.tab)===hash); if(btn) btn.click(); }
 })();
 
-/* ---------- Créer un compte ---------- */
 function toggleChampsRole(){
   const role = document.getElementById('ccRole').value;
   document.getElementById('ccAnimateurBox').style.display = role==='animateur' ? 'block' : 'none';
@@ -316,9 +319,9 @@ async function chargerInscriptions(){
   document.getElementById('inscriptions').innerHTML = inscriptions.length ? inscriptions.map(c=>`
     <div class="card" style="margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px">
-        <div><h4 style="margin:0">${esc(c.prenom)} ${esc(c.nom)}</h4>
+        <div><h4 style="margin:0">${esc(c.prenom)} ${esc(c.nom)} <span class="chip chip-role">${c.role}</span></h4>
         <p class="hint">${esc(c.email)} • ${esc(c.tel||'')} • ${esc(c.adresse||'')} ${esc(c.codePostal||'')} ${esc(c.localite||'')}</p>
-        <p class="hint">Enfant(s) : ${(c.enfantsEnAttente||[]).map(e=>`${esc(e.prenom)} ${esc(e.nom||'')} (${fmtDateCourt(e.naissance)})`).join(', ')}</p></div>
+        ${c.role==='parent'?`<p class="hint">Enfant(s) : ${(c.enfantsEnAttente||[]).map(e=>`${esc(e.prenom)} ${esc(e.nom||'')} (${fmtDateCourt(e.naissance)})`).join(', ')}</p>`:'<p class="hint">Compte animateur — sans enfant.</p>'}</div>
         <div class="btn-row" style="margin:0">
           <button class="btn btn-primary btn-sm" onclick="validerInscription('${c.id}')">✔ Valider</button>
           <button class="btn btn-danger btn-sm" onclick="refuserInscription('${c.id}')">✘ Refuser</button>
@@ -339,9 +342,10 @@ async function chargerComptes(){
     const equipe = COMPTES.filter(c=>c.role==='animateur' && c.sectionId===s.id);
     return `<section class="card" style="border-top:5px solid ${s.couleur};margin-bottom:14px">
       <h4>${s.emoji} ${esc(s.nom)}</h4>
-      ${equipe.length? `<div class="table-wrap"><table><thead><tr><th>Nom</th><th>Totem</th><th>Téléphone</th><th>Statut</th></tr></thead>
+      ${equipe.length? `<div class="table-wrap"><table><thead><tr><th>Nom</th><th>Totem</th><th>Téléphone</th><th>Statut</th><th></th></tr></thead>
         <tbody>${equipe.map(c=>`<tr><td>${esc(c.prenom)} ${esc(c.nom)}</td><td>${esc(c.totem||'—')}</td><td>${esc(c.tel||'—')}</td>
-          <td><span class="badge badge-ok">Actif</span></td></tr>`).join('')}</tbody></table></div>`
+          <td><span class="badge badge-ok">Actif</span></td>
+          <td><button class="btn btn-danger btn-sm" onclick="supprimerAnimateur('${c.id}','${esc(c.prenom)} ${esc(c.nom)}')">🗑️ Supprimer</button></td></tr>`).join('')}</tbody></table></div>`
       : '<div class="empty">Aucun animateur.</div>'}
     </section>`;
   }).join('');
@@ -353,6 +357,11 @@ async function chargerComptes(){
         <td>${c.statut==='valide'?'<span class="badge badge-ok">Validé</span>':c.statut==='attente'?'<span class="badge badge-jaune">En attente</span>':'<span class="badge badge-ko">Refusé</span>'}</td>
         <td>${c.role!=='admin'?`<button class="btn btn-danger btn-sm" onclick="supprimerCompte('${c.id}')">🗑️ Supprimer</button>`:''}</td>
       </tr>`).join('')}</tbody></table></div>`;
+}
+async function supprimerAnimateur(id, nom){
+  if(!confirm(`Êtes-vous sûr de vouloir supprimer cet animateur ?\n\n${nom}\n\nCette action supprimera son accès à son compte animateur. Les réunions, présences et questions déjà enregistrées seront conservées.`)) return;
+  try{ await api('admin/comptes/supprimer',{method:'POST',body:{compteId:id}}); toast('Animateur supprimé — accès révoqué'); await chargerComptes(); }
+  catch(e){ toast(e.message,true); }
 }
 async function supprimerCompte(id){
   if(!confirm('Supprimer définitivement ce compte ?')) return;
@@ -399,7 +408,6 @@ function renderEnfants(){
       }).join('')}</tbody></table></div>` : '<div class="empty">Aucun enfant.</div>';
 }
 
-/* ---------- Paiements en attente (nouveau) ---------- */
 let PAIEMENTS_ADMIN = [];
 function toggleCiblePaiement(){
   const c = document.getElementById('pCible').value;
@@ -450,17 +458,63 @@ async function toggleStatutPaiement(enfantId, paiementId, paye){
 }
 
 function toggleSections(){ document.getElementById('evSections').style.display = document.getElementById('evToutes').checked ? 'none':'flex'; }
-async function creerEvenement(){
+async function chargerEvenements(){
+  const { reunions } = await api('reunions');
+  EVENEMENTS = reunions.sort((a,b)=>a.date.localeCompare(b.date));
+  renderEvenements();
+}
+function renderEvenements(){
+  document.getElementById('listeEvenements').innerHTML = EVENEMENTS.length ? `
+    <div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>Titre</th><th>Type</th><th>Sections</th><th></th></tr></thead>
+      <tbody>${EVENEMENTS.map(r=>`<tr id="evenement-${r.id}">
+        <td>${fmtDateCourt(r.date)}${r.dateFin?`<div class="hint">→ ${fmtDateCourt(r.dateFin)}</div>`:''}</td>
+        <td><strong>${esc(r.titre)}</strong></td>
+        <td>${TYPE_LABEL[r.type]||r.type}</td>
+        <td>${(r.sections||[]).length===SECTIONS.length?'<span class="badge badge-neutre">Toutes</span>':(r.sections||[]).map(sid=>{const s=SECTIONS.find(x=>x.id===sid);return `<span class="chip">${s?s.nom:sid}</span>`}).join('')}</td>
+        <td><button class="btn btn-ghost btn-sm" onclick="editEvenement('${r.id}')">✏️ Modifier</button>
+            <button class="btn btn-danger btn-sm" onclick="supprimerEvenement('${r.id}')">🗑️</button></td>
+      </tr>`).join('')}</tbody></table></div>` : '<div class="empty">Aucun événement créé.</div>';
+}
+function editEvenement(id){
+  const r = EVENEMENTS.find(x=>x.id===id); if(!r) return;
+  evId.value=r.id; evTitre.value=r.titre; evType.value=r.type; evDate.value=r.date; evDateFin.value=r.dateFin||'';
+  evDebut.value=r.heureDebut||''; evFin.value=r.heureFin||''; evLieu.value=r.lieu||''; evDescription.value=r.description||'';
+  const toutes = (r.sections||[]).length === SECTIONS.length;
+  document.getElementById('evToutes').checked = toutes;
+  document.querySelectorAll('.evSec').forEach(c=>c.checked = !toutes && (r.sections||[]).includes(c.value));
+  toggleSections();
+  document.getElementById('evFormTitre').textContent = '✏️ Modifier l\'événement';
+  document.getElementById('evBtnSubmit').textContent = '💾 Enregistrer les modifications';
+  document.getElementById('evNotifierBox').style.display = 'block';
+  document.getElementById('panel-evenement').scrollIntoView({behavior:'smooth'});
+}
+function resetEvenementForm(){
+  ['evId','evTitre','evDate','evDateFin','evDescription'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('evToutes').checked = true; toggleSections();
+  document.querySelectorAll('.evSec').forEach(c=>c.checked=false);
+  document.getElementById('evFormTitre').textContent = '📅 Nouvel événement';
+  document.getElementById('evBtnSubmit').textContent = '🚀 Créer l\'événement';
+  document.getElementById('evNotifierBox').style.display = 'none';
+  document.getElementById('evNotifier').checked = false;
+}
+async function enregistrerEvenement(){
   const secs = [...document.querySelectorAll('.evSec:checked')].map(c=>c.value);
-  const reunion = { titre: v('evTitre'), type: document.getElementById('evType').value, date: v('evDate'),
+  const reunion = { id: evId.value || undefined, titre: v('evTitre'), type: document.getElementById('evType').value, date: v('evDate'),
     dateFin: v('evDateFin')||null, heureDebut: v('evDebut'), heureFin: v('evFin'), lieu: v('evLieu'),
     description: document.getElementById('evDescription').value.trim(),
     sections: document.getElementById('evToutes').checked ? [] : secs };
   if(!reunion.titre||!reunion.date) return toast('Nom et date requis',true);
-  try{ await api('admin/evenement',{method:'POST',body:{reunion}}); toast('Événement créé ✔');
-    ['evTitre','evDate','evDateFin','evDescription'].forEach(i=>document.getElementById(i).value='');
-    document.querySelectorAll('.evSec').forEach(c=>c.checked=false);
+  const estModif = !!reunion.id;
+  try{
+    await api('admin/evenement',{method:'POST',body:{reunion, notifierModif: estModif && document.getElementById('evNotifier').checked}});
+    toast(estModif ? 'Événement modifié ✔' : 'Événement créé ✔');
+    resetEvenementForm(); await chargerEvenements();
   }catch(e){ toast(e.message,true); }
+}
+async function supprimerEvenement(id){
+  if(!confirm('Supprimer cet événement ?')) return;
+  await api('reunions/delete',{method:'POST',body:{id}}); toast('Événement supprimé'); await chargerEvenements();
 }
 
 async function chargerTaches(){
@@ -507,11 +561,10 @@ async function envoyerRappel(reunionId){
   toast(`Rappel envoyé à ${r.nbRappels} parent(s) ✔`); await chargerManquants();
 }
 
-/* ---------- Questions generales (patro) ---------- */
 async function chargerQuestionsPatro(){
   const { questions } = await api('questions/patro');
   document.getElementById('questionsPatro').innerHTML = questions.length ? questions.map(q=>`
-    <div class="notif-item ${q.statut==='ouverte'?'non-lue':''}">
+    <div class="notif-item ${q.statut==='ouverte'?'non-lue':''}" style="cursor:default">
       <div class="ico-notif">🏛️</div>
       <div style="flex:1">
         <strong>${esc(q.auteurNom)}</strong>${q.enfantNom?` (parent de ${esc(q.enfantNom)})`:''}

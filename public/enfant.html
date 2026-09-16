@@ -152,6 +152,8 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   const me = await requireAuth(['parent','admin']); if(!me) return;
   await renderHeader(''); renderFooter();
   await charger();
+  const hash = location.hash.replace('#','');
+  if(hash) document.querySelector(`.tab[data-tab="${hash}"]`)?.click();
 })();
 
 function toggleDetail(radioName, boxId){
@@ -188,9 +190,8 @@ async function charger(){
           ${c.totem?`<p class="hint">« ${esc(c.totem)} »</p>`:''}
           <p><a href="tel:${esc(c.tel)}" class="chip">📞 ${esc(c.tel||'—')}</a></p>
         </div>`).join('')}</div>`
-      : `<div class="empty">${SECTION ? esc('Les chefs de cette section seront communiqués prochainement.') : esc('La section de cet enfant n\'est pas encore définie — contactez l\'administrateur.')}</div>`;
+      : `<div class="empty">${SECTION ? esc('Les chefs de cette section seront communiqués prochainement.') : esc("La section de cet enfant n'est pas encore définie — contactez l'administrateur.")}</div>`;
 
-    // Fiche sante
     const fs = ENFANT.documents?.ficheSante || {};
     fsNomPrenom.value = fs.nomPrenom || (ENFANT.prenom+' '+ENFANT.nom);
     fsNaissance.value = fs.naissance || ENFANT.naissance || '';
@@ -233,7 +234,7 @@ function renderCalendrier(){
       const st = p?p.statut:null;
       const btn=(val,lab,cls)=>`<button class="btn ${st===val?cls:'btn-ghost'} btn-sm" ${passe?'disabled':''}
         onclick="pointer('${r.id}','${val}')">${lab}</button>`;
-      return `<tr>
+      return `<tr id="reunion-${r.id}">
         <td><strong>${fmtDate(r.date)}</strong>${r.dateFin?`<div class="hint">→ ${fmtDateCourt(r.dateFin)}</div>`:''}</td>
         <td>${TYPE_LABEL[r.type]||r.type} <strong>${esc(r.titre)}</strong>${r.description?`<div class="hint">${esc(r.description)}</div>`:''}</td>
         <td>${esc(r.heureDebut||'')}–${esc(r.heureFin||'')}<div class="hint">${esc(r.lieu||'')}</div></td>
@@ -247,6 +248,9 @@ function renderCalendrier(){
           ${passe?'<div class="hint">Réunion passée — réponse verrouillée</div>':''}
         </td></tr>`;
     }).join('')}</tbody></table></div>`;
+  const eventId = new URLSearchParams(location.search).get('event');
+  if(eventId){ const row = document.getElementById('reunion-'+eventId);
+    if(row){ row.style.background='var(--jaune-pale)'; row.scrollIntoView({behavior:'smooth', block:'center'}); } }
 }
 async function pointer(reunionId, statut){
   let heureArrivee = '', motifRetard = '';
@@ -298,7 +302,7 @@ async function chargerQuestions(){
     const { questions } = await api('questions/mes');
     const mine = questions.filter(q=>q.enfantId===enfantId);
     document.getElementById('qHistorique').innerHTML = mine.length ? mine.map(q=>`
-      <div class="notif-item ${q.statut==='ouverte'?'non-lue':''}">
+      <div class="notif-item ${q.statut==='ouverte'?'non-lue':''}" style="cursor:default">
         <div class="ico-notif">${q.categorie==='section'?'🎯':'🏛️'}</div>
         <div style="flex:1"><strong>${q.categorie==='section'?'Question de section':'Question générale (Patro / événement)'}</strong>
           <p style="margin:4px 0">${esc(q.texte)}</p>

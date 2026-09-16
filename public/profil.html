@@ -21,6 +21,7 @@
         <h3 style="margin:0">Mes notifications</h3>
         <button class="btn btn-ghost btn-sm" onclick="toutMarquerLu()">Tout marquer comme lu</button>
       </div>
+      <p class="hint">Cliquez sur une notification pour ouvrir directement la page concernée.</p>
       <div id="notifs" style="margin-top:14px"></div>
     </section>
   </div>
@@ -80,21 +81,19 @@ async function renderNotifs(){
   const { notifications } = await api('notifications/mes');
   const el = document.getElementById('notifs');
   el.innerHTML = notifications.length ? notifications.map(n=>`
-    <div class="notif-item ${n.lue?'':'non-lue'}">
+    <a class="notif-item ${n.lue?'':'non-lue'}" href="${n.lien?esc(n.lien):'#'}" onclick="event.preventDefault();ouvrirNotification('${n.id}','${n.lien?esc(n.lien):''}')">
       <div class="ico-notif">${n.origine==='admin'?'⚙️':n.origine==='animateur'?'🧑‍🏫':'🔔'}</div>
       <div style="flex:1"><strong>${esc(n.titre)}</strong><p style="margin:4px 0">${esc(n.texte)}</p>
-        <p class="hint">${fmtDateCourt(n.date.slice(0,10))} ${n.lue?'':'• <strong>non lue</strong>'}</p></div>
-      ${n.lue?'':'<button class="btn btn-ghost btn-sm" onclick="marquerLu(\''+n.id+'\')">Marquer lu</button>'}
-    </div>`).join('') : '<div class="empty"><span class="big">🔔</span>Aucune notification.</div>';
+        <p class="hint">${fmtDateCourt(n.date.slice(0,10))} ${n.lue?'':'• <strong>non lue</strong>'} ${n.lien?'• Cliquez pour ouvrir →':''}</p></div>
+    </a>`).join('') : '<div class="empty"><span class="big">🔔</span>Aucune notification.</div>';
 }
-async function marquerLu(id){ await api('notifications/lire',{method:'POST',body:{id}}); await renderNotifs(); }
 async function toutMarquerLu(){ await api('notifications/lire',{method:'POST',body:{all:true}}); await renderNotifs(); toast('Notifications marquées comme lues'); }
 
 function renderPaiements(){
   const el = document.getElementById('paiements');
   if(!ENFANTS.length){ el.innerHTML='<div class="empty">Aucun enfant.</div>'; return; }
   el.innerHTML = ENFANTS.map(e=>`
-    <section class="card">
+    <section class="card" id="paiements-enfant-${e.id}">
       <h3 style="display:flex;align-items:center;gap:10px">
         <span class="enfant-avatar" style="width:36px;height:36px;font-size:.95rem;background:${couleurAvatar(e.sectionId)}">${esc(e.prenom[0].toUpperCase())}</span>
         Enfant : ${esc(e.prenom)} ${esc(e.nom)}</h3>
@@ -107,6 +106,8 @@ function renderPaiements(){
           <span class="badge ${p.paye?'badge-ok':'badge-ko'}">${p.paye?'🟢 Payé':'🔴 En attente'}</span>
         </div>`).join('') || '<div class="empty">Aucun paiement enregistré.</div>'}
     </section>`).join('');
+  const enfantVise = new URLSearchParams(location.search).get('enfant');
+  if(enfantVise){ document.getElementById('paiements-enfant-'+enfantVise)?.scrollIntoView({behavior:'smooth', block:'center'}); }
 }
 
 function renderDocs(){

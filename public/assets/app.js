@@ -1,5 +1,5 @@
 /* =====================================================================
-   Utilitaires communs — Patro Notre-Dame d'Ittre (v2.2)
+   Utilitaires communs — Patro Notre-Dame d'Ittre (v2.3)
    ===================================================================== */
 const API = '/api';
 
@@ -32,20 +32,12 @@ function toast(msg, isError = false) {
   t._to = setTimeout(() => (t.className = ''), 3600);
 }
 
-/* -------- Deconnexion centralisee, utilisee partout -------- */
 async function deconnecterEtRediriger(){
   try{ await api('auth/logout',{method:'POST'}); }catch(e){}
   session.clear();
-  // location.replace() remplace l'entree d'historique courante : le bouton
-  // "precedent" du navigateur ne pourra plus re-afficher la page privee.
   location.replace('index.html');
 }
 
-/* -------- Anti bouton "precedent" (bfcache) --------
-   Quand une page est restauree depuis le cache du navigateur (bfcache),
-   aucun script ne se re-execute normalement : on force un rechargement
-   complet pour que requireAuth()/renderHeader() se relancent et
-   redirigent immediatement si la session n'est plus valide. */
 window.addEventListener('pageshow', function(e){
   if (e.persisted) location.reload();
 });
@@ -61,8 +53,6 @@ const NAV_ANIMATEUR = [
   { href: 'animateur.html', label: '🧑‍🏫 Mon espace' },
   { href: 'profil.html', label: '👤 Mon profil' },
 ];
-// Feedback : l'administrateur ne doit plus avoir de lien "Accueil" —
-// apres connexion il reste dans son espace administratif.
 const NAV_ADMIN = [
   { href: 'admin.html', label: '⚙️ Administration' },
   { href: 'profil.html', label: '👤 Mon profil' },
@@ -158,6 +148,11 @@ async function requireAuth(roles = null) {
     location.href = 'connexion.html';
     return null;
   }
+}
+
+async function ouvrirNotification(id, lien){
+  try{ await api('notifications/lire',{method:'POST',body:{id}}); }catch(e){}
+  if(lien) location.href = lien;
 }
 
 const SECTION_COULEURS = {
