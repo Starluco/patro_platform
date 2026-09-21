@@ -1,6 +1,6 @@
 /**
  * =====================================================================
- *  Fonctions utilitaires partagées — couche SQL (v3.0.2)
+ *  Fonctions utilitaires partagées — couche SQL (v3.0)
  * =====================================================================
  */
 import { createHash, randomBytes } from 'node:crypto';

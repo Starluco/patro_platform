@@ -1,84 +1,93 @@
-# 🌳 Patro Notre-Dame d'Ittre — Application de gestion
+# 🌳 Patro Notre-Dame d'Ittre — v3.0.1
 
-Application web (statique + Netlify Functions + **Netlify Blobs** comme base de données JSON)
-pour gérer les inscriptions, sections, chefs, cotisations, présences et communications.
+## 🩹 Correctif de déploiement (v3.0.1)
 
-## 🧩 Modules (1 fichier HTML par module)
+Le déploiement Netlify de la v3.0.0 a échoué avec l'erreur suivante :
 
-| Fichier | Module | Contenu |
+```
+npm error code ETARGET
+npm error notarget No matching version found for @netlify/neon@^1.0.0.
+```
+
+**Cause** : `@netlify/neon` n'a que la version **`0.1.2`** publiée sur npm à ce jour.
+La contrainte `^1.0.0` indiquée dans `package.json` n'existe pas, donc `npm install`
+échoue immédiatement pendant la phase "Installing dependencies" du build Netlify.
+
+**Correctif appliqué** : `package.json` utilise désormais `"@netlify/neon": "0.1.2"`
+(version exacte). L'API utilise `neon()` sans argument, ce qui est bien supporté
+par cette version 0.1.2 et lit automatiquement `NETLIFY_DATABASE_URL` injectée par
+Netlify (y compris avec la bonne branche selon l'environnement de déploiement).
+
+Aucun autre changement de logique n'était nécessaire : le code de `lib/db.mjs`,
+`lib/helpers.mjs` et `api.mjs` était déjà compatible avec cette version.
+
+## 🔄 Rappel : migration vers Netlify DB (Postgres) — v3.0.0
+
+Toute la donnée applicative (comptes, enfants, présences, paiements, notifications,
+questions, tâches, documents demandés, contenu du site, historique, sessions) est
+stockée dans **Netlify DB** (Postgres serverless — Neon), et non plus dans Netlify
+Blobs.
+
+### Nouveaux fichiers
+- **`netlify/functions/lib/db.mjs`** : connexion Neon + schéma complet (19 tables) + seed idempotent
+- **`netlify/functions/lib/helpers.mjs`** : hashing, mappers SQL→JS, requêtes métier partagées
+
+### Garanties d'intégrité
+Grâce aux `ON DELETE CASCADE`/`SET NULL`, la suppression d'un enfant est un simple
+`DELETE FROM children WHERE id = ...` — la base nettoie automatiquement présences,
+paiements, questions, documents liés.
+
+### Branching des environnements (Deploy Previews)
+`neon()` est appelé **sans argument**. Netlify détecte automatiquement le contexte
+de build (production / deploy preview / branch deploy) et injecte l'URL de
+connexion pointant vers la branche Neon isolée correspondante.
+
+### Exception Blobs (fichiers bruts)
+La table `files` (colonne `blob_key`) est prête à recevoir des références vers des
+fichiers stockés dans un store Netlify Blobs séparé (PDF, photos), conformément à
+l'exception autorisée. Non utilisée pour l'instant (aucune fonctionnalité d'upload).
+
+## 🔑 Connexion administrateur
+| Rôle | E-mail | Mot de passe |
 |---|---|---|
-| `public/index.html` | **1. Accueil** | Présentation du mouvement, infos pratiques, sections, actualités, agenda |
-| `public/parents.html` | **2. Espace parents** | Inscription, enfants, section, chefs + coordonnées, calendrier, modification des coordonnées, fiche d'inscription imprimable |
-| `public/gestion.html` | **3. Gestion (président)** | Chefs, sections, cotisations, membres, réunions, informations, sauvegarde/export |
-| `public/presences.html` | **4. Présences** | Les parents pointent présent / absent / retard pour chaque réunion |
-| `public/communication.html` | **5. Communication** | E-mail groupé ciblé (tous, en ordre de cotisation, par section, chefs, manuel) + modèles + historique |
+| Administrateur | `admin@patro.be` | `Ster2014` |
 
-## 🗄️ Base de données
+## 🆘 Récupération d'accès admin
+Si le dernier compte administrateur perd accidentellement son rôle, la page
+`recuperation-admin.html` (route API `auth/recuperer-admin`) permet de le rétablir
+ou d'en créer un nouveau, protégée par la clé `ADMIN_RECOVERY_KEY` (variable
+d'environnement Netlify) — désactivée automatiquement dès qu'un admin valide
+existe à nouveau.
 
-Netlify Blobs — store `patro-db`, clé `database`, un seul objet JSON contenant :
-`sections`, `chefs`, `parents`, `enfants`, `reunions`, `presences`, `infos`, `messages`.
+## 🚀 Déploiement
 
-Tout passe par une seule function : `netlify/functions/api.mjs` exposée sur `/api/*`.
-Au premier appel, la base est automatiquement initialisée avec des **données fictives**
-(6 sections, 8 chefs, 2 familles, 3 enfants, tous les samedis + le camp).
+1. Sur le dashboard Netlify de ce site : **Site settings → Database → Enable
+   Netlify DB**. Netlify provisionne une base Postgres (Neon) et injecte
+   automatiquement `NETLIFY_DATABASE_URL`.
+2. (Optionnel) Définissez `ADMIN_RECOVERY_KEY` dans **Site settings →
+   Environment variables** pour remplacer la valeur par défaut.
+3. Poussez le code :
+   ```bash
+   git add .
+   git commit -m "v3.0.1 : fix package.json (@netlify/neon 0.1.2, version inexistante ^1.0.0 corrigee)"
+   git push
+   ```
+4. Au premier appel de l'API (ex: première visite du site), les tables sont créées
+   automatiquement et les données de référence insérées.
 
-### Routes principales
+## Structure du projet
 ```
-GET  /api/db                     GET  /api/sections            POST /api/sections
-POST /api/reset                  GET  /api/chefs               POST /api/chefs
-POST /api/admin/login            POST /api/chefs/delete
-POST /api/parents/login          POST /api/parents
-POST /api/enfants                POST /api/enfants/delete      POST /api/enfants/cotisation
-GET  /api/reunions               POST /api/reunions            POST /api/reunions/delete
-GET  /api/presences              POST /api/presences
-GET  /api/infos                  POST /api/infos               POST /api/infos/delete
-GET  /api/messages               POST /api/messages/send
+netlify.toml
+package.json
+netlify/functions/
+  api.mjs                <- API unique (routage /api/*), toute la logique métier
+  lib/db.mjs             <- connexion Neon + schéma SQL + seed
+  lib/helpers.mjs        <- utilitaires partagés (hash, mappers, requêtes communes)
+public/
+  index.html, patro.html, animateurs.html, histoire.html, histoire-detail.html,
+  infos.html, connexion.html, inscription.html, recuperation-admin.html
+  mes-enfants.html, enfant.html, profil.html          (parent)
+  animateur.html                                       (animateur)
+  admin.html, admin-enfant.html                         (administrateur)
+  assets/style.css, assets/app.js
 ```
-
-## 🚀 Déploiement sur Netlify
-
-### 1. En local
-```bash
-npm install
-npx netlify dev        # http://localhost:8888  (Blobs fonctionne en local)
-```
-
-### 2. Sur Netlify
-```bash
-npm install -g netlify-cli
-netlify login
-netlify init           # ou : glisser le dossier sur app.netlify.com/drop
-netlify deploy --prod
-```
-
-Ou via Git : pousser le dépôt, puis dans Netlify → *Add new site* → *Import from Git*.
-Les réglages sont déjà dans `netlify.toml` :
-- **Publish directory** : `public`
-- **Functions directory** : `netlify/functions`
-- **Build command** : aucune (site statique)
-
-### 3. Variables d'environnement (Site configuration → Environment variables)
-
-| Variable | Rôle | Exemple |
-|---|---|---|
-| `ADMIN_PASSWORD` | mot de passe des modules Gestion & Communication | `MonMotDePasse2025` |
-| `RESEND_API_KEY` | *(optionnel)* envoi de vrais e-mails via Resend | `re_xxx` |
-| `MAIL_FROM` | expéditeur des e-mails | `Patro Ittre <pndi@patro.be>` |
-
-> Sans `RESEND_API_KEY`, le module de communication fonctionne en **mode simulation** :
-> le message et la liste des destinataires sont enregistrés (utile pour tester),
-> et le bouton « Copier les adresses » permet de coller les adresses dans votre client mail.
-
-## 🔑 Accès de démonstration
-
-- **Parents** : `marie.durand@example.com` ou `olivier.peeters@example.com`
-- **Admin** : mot de passe `patro2025` (à changer via `ADMIN_PASSWORD`)
-
-## 🎨 Charte graphique
-Vert (`#1B5E20`, `#2E7D32`, `#7BC043`) et jaune (`#F9C80E`) — variables CSS dans `public/assets/style.css`.
-
-## 📌 Améliorations possibles
-- Vrai système de comptes (Netlify Identity) au lieu de l'e-mail seul
-- Paiement en ligne des cotisations
-- Export PDF des listes de présence par section
-- Envoi automatique des rappels (Netlify Scheduled Functions)

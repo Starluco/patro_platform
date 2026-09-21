@@ -1,43 +1,56 @@
 /**
  * =====================================================================
- *  Couche base de données — Patro Notre-Dame d'Ittre (v3.0.3)
- *  Store : Netlify DB (Postgres managé) via @netlify/database
+ *  Couche base de données — Patro Notre-Dame d'Ittre
+ *  Store : Netlify Database (Postgres managé, créé via
+ *  Data & Storage → Database → "production")
  * =====================================================================
- *  HISTORIQUE DES CORRECTIFS :
- *
- *  v3.0.2 (erreur 502 au chargement) :
- *  - La connexion à la base était créée AU CHARGEMENT du module,
- *    ce qui faisait planter toute la fonction (502 muet) si la
- *    connexion échouait. Corrigé en la rendant paresseuse.
- *
- *  v3.0.3 (erreur "NETLIFY_DATABASE_URL manquante") :
- *  - Netlify a fait évoluer son offre "Netlify DB" : le paquet legacy
- *    `@netlify/neon` et sa variable `NETLIFY_DATABASE_URL` ont été
- *    remplacés par le paquet moderne `@netlify/database` et sa
- *    variable `NETLIFY_DB_URL`. Si la base a été créée après ce
- *    changement (ce qui est le cas ici : la base "production" existe
- *    bien sur Netlify), `NETLIFY_DATABASE_URL` n'existe simplement
- *    jamais, et `@netlify/neon` échoue systématiquement.
- *  - Solution : on utilise désormais `getDatabase()` du paquet moderne
- *    `@netlify/database`, qui résout automatiquement la bonne chaîne
- *    de connexion pour l'environnement/branche courant(e), qu'elle
- *    soit exposée via NETLIFY_DB_URL ou l'ancienne variable.
+ *  CORRECTIF IMPORTANT :
+ *  - Netlify Database (le produit actuel, créé depuis le dashboard)
+ *    injecte automatiquement la variable NETLIFY_DB_URL dans les
+ *    Functions, Edge Functions, builds et agent runners.
+ *  - Elle n'apparaît PAS dans la liste "Environment variables" du
+ *    dashboard : c'est normal et documenté par Netlify, ce n'est PAS
+ *    un signe que la base n'est pas connectée.
+ *  - L'ancien paquet `@netlify/neon` (extension "legacy") cherchait une
+ *    variable différente, `NETLIFY_DATABASE_URL`, qui n'existe pas dans
+ *    ce projet -> c'était la cause exacte de l'erreur 502 précédente.
+ *  - On utilise ici le driver `postgres` (porsager), recommandé par la
+ *    documentation officielle de Netlify Database, branché directement
+ *    sur process.env.NETLIFY_DB_URL.
+ *  - La connexion reste paresseuse (créée seulement au premier appel
+ *    SQL réel, à l'intérieur du try/catch de api.mjs) afin qu'un souci
+ *    de connexion produise un message JSON clair (500) plutôt qu'un
+ *    502 muet.
  * =====================================================================
  */
-import { getDatabase } from '@netlify/database';
+import postgres from 'postgres';
 
 let _sqlImpl = null;
+
+function resolveConnectionString() {
+  // Méthode officielle documentée par Netlify Database (produit actuel).
+  if (process.env.NETLIFY_DB_URL) return process.env.NETLIFY_DB_URL;
+  // Repli pour compatibilité si vous migrez un jour vers l'extension
+  // legacy Neon (@netlify/neon), qui utilise ce nom de variable-ci.
+  if (process.env.NETLIFY_DATABASE_URL) return process.env.NETLIFY_DATABASE_URL;
+
+  throw new Error(
+    "Aucune chaîne de connexion trouvée (NETLIFY_DB_URL absente). " +
+    "Vérifiez qu'une base de données existe pour ce site " +
+    "(Site → Data & Storage → Database) et que le déploiement a bien " +
+    "été relancé après sa création."
+  );
+}
+
 function getSqlImpl() {
   if (!_sqlImpl) {
     try {
-      const db = getDatabase();
-      _sqlImpl = db.sql;
+      const connectionString = resolveConnectionString();
+      _sqlImpl = postgres(connectionString, { ssl: 'require' });
     } catch (e) {
       throw new Error(
-        "Impossible d'initialiser la connexion à Netlify DB (Postgres). " +
-        "Vérifiez qu'une base de données est bien créée pour ce site " +
-        "(Site → Database) et que le déploiement a bien été relancé " +
-        "après sa création. Détail technique : " + e.message
+        "Impossible d'initialiser la connexion à Netlify Database (Postgres). " +
+        "Détail technique : " + e.message
       );
     }
   }
@@ -51,7 +64,6 @@ export function sql(...args) {
 }
 
 let schemaReady = false;
-
 
 export async function ensureSchema() {
   if (schemaReady) return;

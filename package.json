@@ -9,6 +9,6 @@
     "deploy": "netlify deploy --prod"
   },
   "dependencies": {
-    "@netlify/database": "2.0.1"
-  }
+  "postgres": "3.4.9"
+}
 }

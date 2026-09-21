@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Récupération accès administrateur — Patro Notre-Dame d'Ittre</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<header class="hero hero-sm"><h1>🆘 Récupération de l'accès administrateur</h1><p>Procédure de secours — à utiliser uniquement en cas de blocage total</p></header>
+<main class="container-sm">
+  <div class="alert alert-info">
+    Cette page ne fonctionne <strong>que s'il n'existe plus aucun compte administrateur actif</strong>
+    dans la base de données (par exemple si le dernier compte admin a été accidentellement rétrogradé en
+    parent ou animateur). Si un administrateur est encore actif, cette procédure sera refusée par sécurité.
+  </div>
+
+  <section class="card card-accent">
+    <h3>🔑 Clé de récupération</h3>
+    <p class="hint">Cette clé est définie par le développeur du site (variable d'environnement <code>ADMIN_RECOVERY_KEY</code> sur Netlify).
+      Si elle n'a pas été configurée, la valeur par défaut est <code>PATRO-RECUP-2024</code> — pensez à la changer après usage !</p>
+    <label>Clé secrète *</label><input type="password" id="cleSecrete" placeholder="Clé de récupération">
+  </section>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="promouvoir">♻️ Redonner les droits admin à un compte existant</button>
+    <button class="tab" data-tab="creer">➕ Créer un nouveau compte admin</button>
+  </div>
+
+  <div class="tab-panel active" id="panel-promouvoir">
+    <section class="card">
+      <h3>♻️ Redonner le rôle Administrateur</h3>
+      <p class="page-sub">Utilisez ceci si votre ancien compte admin (par exemple <code>admin@patro.be</code>) existe toujours mais a perdu son rôle.</p>
+      <label>E-mail du compte à promouvoir *</label><input type="email" id="promEmail" placeholder="admin@patro.be">
+      <div class="btn-row"><button class="btn btn-primary" onclick="promouvoir()">✅ Redonner les droits admin</button></div>
+      <div id="promMsg"></div>
+    </section>
+  </div>
+
+  <div class="tab-panel" id="panel-creer">
+    <section class="card">
+      <h3>➕ Créer un nouveau compte administrateur</h3>
+      <p class="page-sub">Utilisez ceci si vous préférez repartir avec un tout nouveau compte admin.</p>
+      <div class="row">
+        <div><label>Prénom *</label><input id="crPrenom"></div>
+        <div><label>Nom *</label><input id="crNom"></div>
+      </div>
+      <div class="row">
+        <div><label>E-mail *</label><input type="email" id="crEmail"></div>
+        <div><label>Mot de passe *</label><input type="password" id="crPassword"></div>
+      </div>
+      <div class="btn-row"><button class="btn btn-primary" onclick="creer()">🚀 Créer ce compte admin</button></div>
+      <div id="crMsg"></div>
+    </section>
+  </div>
+
+  <div class="btn-row"><a href="connexion.html" class="btn btn-ghost">← Retour à la connexion</a></div>
+</main>
+<script src="assets/app.js"></script>
+<script>
+renderHeader(''); renderFooter();
+
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active'); document.getElementById('panel-'+t.dataset.tab).classList.add('active');
+});
+
+async function promouvoir(){
+  const cleSecrete = document.getElementById('cleSecrete').value;
+  const email = document.getElementById('promEmail').value.trim();
+  if(!cleSecrete || !email) return toast('Clé et e-mail requis', true);
+  try{
+    const r = await api('auth/recuperer-admin', { method:'POST', body:{ action:'promouvoir', cleSecrete, email } });
+    document.getElementById('promMsg').innerHTML = `<div class="alert alert-ok">✅ ${esc(r.message)}</div>`;
+  }catch(e){ document.getElementById('promMsg').innerHTML = `<div class="alert alert-err">${esc(e.message)}</div>`; }
+}
+async function creer(){
+  const cleSecrete = document.getElementById('cleSecrete').value;
+  const body = { action:'creer', cleSecrete,
+    prenom: document.getElementById('crPrenom').value.trim(),
+    nom: document.getElementById('crNom').value.trim(),
+    email: document.getElementById('crEmail').value.trim(),
+    password: document.getElementById('crPassword').value };
+  if(!cleSecrete || !body.prenom || !body.nom || !body.email || !body.password) return toast('Tous les champs sont requis', true);
+  try{
+    const r = await api('auth/recuperer-admin', { method:'POST', body });
+    document.getElementById('crMsg').innerHTML = `<div class="alert alert-ok">✅ ${esc(r.message)}</div>`;
+  }catch(e){ document.getElementById('crMsg').innerHTML = `<div class="alert alert-err">${esc(e.message)}</div>`; }
+}
+</script>
+</body></html>

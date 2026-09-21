@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Administration — Patro Notre-Dame d'Ittre</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<main class="container">
+  <div class="page-title-row">
+    <h1 class="page-title"><span class="ico">⚙️</span> Espace administrateur</h1>
+    <button class="btn btn-danger" onclick="deconnecterEtRediriger()">🚪 Se déconnecter</button>
+  </div>
+  <div class="grid grid-4" id="stats"></div>
+  <div class="tabs">
+    <button class="tab active" data-tab="creercompte">➕ Créer un compte</button>
+    <button class="tab" data-tab="inscriptions">📋 Inscriptions</button>
+    <button class="tab" data-tab="animateurs">🧑‍🏫 Animateurs</button>
+    <button class="tab" data-tab="enfants">👦 Enfants</button>
+    <button class="tab" data-tab="paiements">💰 Paiements en attente</button>
+    <button class="tab" data-tab="evenement">📅 Créer un événement</button>
+    <button class="tab" data-tab="taches">🗂️ Tâches</button>
+    <button class="tab" data-tab="rappels">🔔 Rappels</button>
+    <button class="tab" data-tab="questions">💬 Questions</button>
+    <button class="tab" data-tab="statsp" data-real="stats">📊 Stats</button>
+    <button class="tab" data-tab="documents">📁 Documents</button>
+    <button class="tab" data-tab="contenu">📝 Contenu du site</button>
+  </div>
+
+  <div class="tab-panel active" id="panel-creercompte">
+    <section class="card card-accent">
+      <h3>➕ Créer un nouveau compte</h3>
+      <p class="page-sub">Les comptes parents et animateurs sont créés ici par l'administrateur.</p>
+      <div class="row">
+        <div><label>Rôle *</label><select id="ccRole" onchange="toggleChampsRole()">
+          <option value="parent">Parent</option><option value="animateur">Animateur</option><option value="admin">Administrateur</option>
+        </select></div>
+        <div><label>Prénom *</label><input id="ccPrenom"></div>
+        <div><label>Nom *</label><input id="ccNom"></div>
+      </div>
+      <div class="row">
+        <div><label>E-mail *</label><input type="email" id="ccEmail"></div>
+        <div><label>Mot de passe *</label><input type="password" id="ccPassword"></div>
+        <div><label>Téléphone</label><input id="ccTel"></div>
+      </div>
+      <div id="ccAnimateurBox" style="display:none">
+        <div class="row">
+          <div><label>Section (animateur) *</label><select id="ccSection"></select></div>
+          <div><label>Totem</label><input id="ccTotem"></div>
+          <div><label>Tâche / responsabilité</label><input id="ccTache" placeholder="Ex: Responsable communication"></div>
+        </div>
+        <label>Bio (affichée publiquement)</label><textarea id="ccBio" style="min-height:80px"></textarea>
+      </div>
+      <div id="ccParentBox">
+        <div class="divider"></div>
+        <h4>👧 Enfant(s) à associer (facultatif, ajoutable plus tard)</h4>
+        <div id="ccEnfants"></div>
+        <div class="btn-row"><button class="btn btn-ghost btn-sm" onclick="ajouterEnfantCC()">➕ Ajouter un enfant</button></div>
+      </div>
+      <div class="btn-row"><button class="btn btn-primary" onclick="creerCompte()">💾 Créer le compte</button></div>
+      <div id="ccMsg"></div>
+    </section>
+  </div>
+
+  <div class="tab-panel" id="panel-inscriptions">
+    <section class="card"><h3>Demandes d'inscription en attente</h3><div id="inscriptions"><div class="loader"></div></div></section>
+  </div>
+
+  <div class="tab-panel" id="panel-animateurs">
+    <section class="card">
+      <h3>Modifier un rôle existant</h3>
+      <p class="hint">Sélectionnez un compte déjà validé pour changer son rôle ou sa section.</p>
+      <div class="row">
+        <div><label>Compte</label><select id="rCompte"></select></div>
+        <div><label>Rôle</label><select id="rRole" onchange="document.getElementById('rSectionBox').style.display=this.value==='animateur'?'block':'none'">
+          <option value="parent">Parent</option><option value="animateur">Animateur</option><option value="admin">Administrateur</option>
+        </select></div>
+        <div id="rSectionBox" style="display:none"><label>Section</label><select id="rSection"></select></div>
+      </div>
+      <div class="row">
+        <div><label>Totem</label><input id="rTotem"></div>
+        <div><label>Téléphone</label><input id="rTel"></div>
+        <div><label>Tâche / responsabilité</label><input id="rTache" placeholder="Ex: Responsable communication"></div>
+      </div>
+      <div class="btn-row"><button class="btn btn-primary" onclick="attribuer()">💾 Enregistrer</button></div>
+    </section>
+    <section class="card"><h3>Équipe par section</h3><p class="hint">Cliquez sur « 🗑️ Supprimer » pour retirer l'accès d'un animateur (les données historiques sont conservées).</p><div id="listeAnimateurs"></div></section>
+    <section class="card"><h3>Tous les comptes</h3><div id="listeComptes"></div></section>
+  </div>
+
+  <div class="tab-panel" id="panel-enfants">
+    <div id="parSection" class="grid grid-3"></div>
+    <section class="card"><h3>Tous les enfants</h3>
+      <div class="row"><div><label>Filtrer par section</label><select id="fSection" onchange="renderEnfants()"></select></div></div>
+      <div id="listeEnfants" style="margin-top:10px"></div>
+    </section>
+  </div>
+
+  <div class="tab-panel" id="panel-paiements">
+    <section class="card card-accent">
+      <h3>💰 Créer un nouveau paiement</h3>
+      <div class="row">
+        <div><label>Titre du paiement *</label><input id="pTitre" placeholder="Ex: Camp 2027"></div>
+        <div><label>Prix / montant (€) *</label><input type="number" id="pMontant" placeholder="150"></div>
+        <div><label>Date limite (facultatif)</label><input type="date" id="pDateLimite"></div>
+      </div>
+      <label>Description</label><textarea id="pDescription" placeholder="Ex: Participation au camp annuel du Patro."></textarea>
+      <label>Enfant(s) ou groupe concerné</label>
+      <div class="row">
+        <div><label>Cible</label><select id="pCible" onchange="toggleCiblePaiement()">
+          <option value="tous">Tous les enfants</option>
+          <option value="section">Une section</option>
+          <option value="enfant">Un enfant précis</option>
+        </select></div>
+        <div id="pSectionBox" style="display:none"><label>Section</label><select id="pSection"></select></div>
+        <div id="pEnfantBox" style="display:none"><label>Enfant</label><select id="pEnfant"></select></div>
+      </div>
+      <div class="btn-row"><button class="btn btn-primary" onclick="creerPaiement()">💾 Créer le paiement</button></div>
+      <div id="pMsg"></div>
+    </section>
+    <section class="card">
+      <h3>Paiements en attente</h3>
+      <div class="row">
+        <div><label>Filtrer</label><select id="pFiltre" onchange="renderPaiementsAdmin()">
+          <option value="attente">🔴 En attente uniquement</option>
+          <option value="tous">Tous les paiements</option>
+        </select></div>
+      </div>
+      <div id="listePaiements" style="margin-top:10px"></div>
+    </section>
+  </div>
+
+  <div class="tab-panel" id="panel-evenement">
+    <section class="card card-accent">
+      <h3 id="evFormTitre">📅 Nouvel événement</h3>
+      <input type="hidden" id="evId">
+      <div class="row">
+        <div><label>Nom de l'événement *</label><input id="evTitre"></div>
+        <div><label>Type *</label><select id="evType">
+          <option value="reunion">Réunion</option><option value="souper">Souper</option>
+          <option value="journee">Journée spéciale</option><option value="camp">Camp</option>
+        </select></div>
+      </div>
+      <div class="row">
+        <div><label>Date *</label><input type="date" id="evDate"></div>
+        <div><label>Date de fin (facultatif)</label><input type="date" id="evDateFin"></div>
+        <div><label>Heure de début</label><input id="evDebut" value="14:00"></div>
+        <div><label>Heure de fin</label><input id="evFin" value="17:00"></div>
+      </div>
+      <label>Lieu</label><input id="evLieu" value="Parking en face du Deli-traiteur, Ittre">
+      <label>Description</label><textarea id="evDescription"></textarea>
+      <label>Sections concernées</label>
+      <div class="check"><input type="checkbox" id="evToutes" checked onchange="toggleSections()"> <label style="margin:0">Toutes les sections</label></div>
+      <div id="evSections" style="display:none;flex-wrap:wrap;gap:12px;margin-top:6px"></div>
+      <div class="check" id="evNotifierBox" style="display:none"><input type="checkbox" id="evNotifier">
+        <label style="margin:0">Envoyer une notification aux parents et animateurs concernés pour les prévenir de cette modification</label></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="enregistrerEvenement()" id="evBtnSubmit">🚀 Créer l'événement</button>
+        <button class="btn btn-ghost" onclick="resetEvenementForm()">Annuler</button>
+      </div>
+    </section>
+    <section class="card"><h3>Tous les événements</h3><p class="hint">Cliquez sur « ✏️ Modifier » pour changer nom, date, heure, sections, description ou type.</p><div id="listeEvenements"></div></section>
+  </div>
+
+  <div class="tab-panel" id="panel-taches">
+    <section class="card card-accent">
+      <h3 id="tacheTitre">➕ Ajouter une tâche</h3>
+      <input type="hidden" id="tId">
+      <div class="row">
+        <div><label>Nom de la tâche *</label><input id="tNom" placeholder="Responsable communication"></div>
+        <div><label>Référent (compte)</label><select id="tReferent"><option value="">— Nom libre ci-dessous —</option></select></div>
+      </div>
+      <label>Ou nom libre (si pas de compte)</label><input id="tNomLibre" placeholder="Prénom Nom">
+      <div class="btn-row"><button class="btn btn-primary" onclick="saveTache()">💾 Enregistrer</button>
+        <button class="btn btn-ghost" onclick="resetTache()">Annuler</button></div>
+    </section>
+    <section class="card"><h3>Tâches et référents</h3><div id="listeTaches"></div></section>
+  </div>
+
+  <div class="tab-panel" id="panel-rappels">
+    <section class="card">
+      <h3>🔔 Rappels de présence</h3>
+      <p class="page-sub">Sélectionnez une réunion à venir pour voir les parents n'ayant pas encore répondu.</p>
+      <label>Réunion</label><select id="rapReunion" onchange="chargerManquants()"></select>
+      <div id="manquants" style="margin-top:14px"></div>
+    </section>
+  </div>
+
+  <div class="tab-panel" id="panel-questions">
+    <section class="card"><h3>💬 Questions générales (Patro / événement)</h3><div id="questionsPatro"></div></section>
+  </div>
+
+  <div class="tab-panel" id="panel-statsp">
+    <section class="card"><div class="row"><div><label>Année</label><select id="statAnnee" onchange="chargerStats()"></select></div></div></section>
+    <section class="card"><h3>📊 Statistiques globales</h3><div id="statGlobal" class="grid grid-4"></div></section>
+    <section class="card">
+      <h3>📊 Par section</h3>
+      <label>Section</label><select id="statSection" onchange="renderStatSection()"></select>
+      <div id="statSectionDetail" class="grid grid-4" style="margin-top:12px"></div>
+    </section>
+    <section class="card"><h3>📊 Par événement</h3><div id="statEvenements"></div></section>
+  </div>
+
+  <div class="tab-panel" id="panel-documents">
+    <section class="card card-accent">
+      <h3 id="docFormTitre">➕ Ajouter un document demandé</h3>
+      <input type="hidden" id="dId">
+      <div class="row">
+        <div><label>Nom du document *</label><input id="dNom" placeholder="Ex: Photo d'identité"></div>
+        <div><label>Obligatoire ?</label><select id="dObligatoire"><option value="true">Oui</option><option value="false">Non</option></select></div>
+      </div>
+      <label>Instructions / informations pour les parents</label>
+      <textarea id="dInstructions" placeholder="Expliquez ici ce que le parent doit fournir et comment."></textarea>
+      <p class="hint" id="dProtegeHint" style="display:none">⚠️ Ce document est structurel au site : sa clé technique ne peut pas être modifiée et il ne peut pas être supprimé, mais son nom et ses instructions restent librement modifiables.</p>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveDocument()">💾 Enregistrer</button>
+        <button class="btn btn-ghost" onclick="resetDocument()">Annuler</button>
+      </div>
+      <div id="dMsg"></div>
+    </section>
+    <section class="card">
+      <h3>📁 Documents actuellement demandés</h3>
+      <p class="hint">Toute création ou modification envoie automatiquement une notification aux parents concernés, avec un lien direct vers l'onglet Documents de la fiche de leur enfant.</p>
+      <div id="listeDocuments"></div>
+    </section>
+  </div>
+
+  <div class="tab-panel" id="panel-contenu">
+    <section class="card card-accent">
+      <h3>❓ Texte « C'est quoi le Patro ? »</h3>
+      <textarea id="cPatro" style="min-height:180px"></textarea>
+      <div class="btn-row"><button class="btn btn-primary" onclick="saveContenu('patro')">💾 Enregistrer</button></div>
+    </section>
+    <section class="card">
+      <h3>📌 Texte « Infos importantes »</h3>
+      <textarea id="cInfos" style="min-height:140px"></textarea>
+      <div class="btn-row"><button class="btn btn-primary" onclick="saveContenu('infos')">💾 Enregistrer</button></div>
+    </section>
+    <section class="card">
+      <h3>💳 Rubrique Paiements — textes affichés aux parents</h3>
+      <label>Numéro de compte bancaire du Patro</label><input id="cCompteBancaire" placeholder="BE49 0012 6285 0171">
+      <label>Texte « difficultés financières »</label><textarea id="cDifficulte" style="min-height:120px"></textarea>
+      <div class="btn-row"><button class="btn btn-primary" onclick="saveContenu('paiement')">💾 Enregistrer</button></div>
+    </section>
+    <section class="card card-accent">
+      <h3 id="histTitre">➕ Ajouter une date à l'histoire</h3>
+      <input type="hidden" id="hId">
+      <div class="row"><div><label>Date / année *</label><input id="hDate" placeholder="1958"></div>
+        <div><label>Titre *</label><input id="hTitre"></div></div>
+      <label>Texte court (ligne du temps)</label><input id="hCourt">
+      <label>Texte long (page détail)</label><textarea id="hLong" style="min-height:140px"></textarea>
+      <div class="btn-row"><button class="btn btn-primary" onclick="saveHistoire()">💾 Enregistrer</button>
+        <button class="btn btn-ghost" onclick="resetHistoire()">Annuler</button></div>
+    </section>
+    <section class="card"><h3>Ligne du temps actuelle</h3><div id="listeHistoire"></div></section>
+  </div>
+</main>
+<script src="assets/app.js"></script>
+<script>
+let SECTIONS=[], COMPTES=[], ENFANTS=[], EVENEMENTS=[], DOCUMENTS_REQUIS=[];
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active'); document.getElementById('panel-'+t.dataset.tab).classList.add('active');
+  history.replaceState(null,'','#'+(t.dataset.real||t.dataset.tab));
+});
+
+(async function(){
+  const me = await requireAuth(['admin']); if(!me) return;
+  await renderHeader('admin.html'); renderFooter();
+  const s = await api('sections'); SECTIONS = s.sections;
+  document.getElementById('fSection').innerHTML = '<option value="">Toutes les sections</option>'+SECTIONS.map(s=>`<option value="${s.id}">${esc(s.nom)}</option>`).join('');
+  document.getElementById('rSection').innerHTML = SECTIONS.map(s=>`<option value="${s.id}">${esc(s.nom)}</option>`).join('');
+  document.getElementById('ccSection').innerHTML = SECTIONS.map(s=>`<option value="${s.id}">${esc(s.nom)}</option>`).join('');
+  document.getElementById('statSection').innerHTML = SECTIONS.map(s=>`<option value="${s.id}">${esc(s.nom)}</option>`).join('');
+  document.getElementById('evSections').innerHTML = SECTIONS.map(s=>`<label class="check" style="margin:0"><input type="checkbox" class="evSec" value="${s.id}"> ${esc(s.nom)}</label>`).join('');
+  document.getElementById('pSection').innerHTML = SECTIONS.map(s=>`<option value="${s.id}">${esc(s.nom)}</option>`).join('');
+
+  ajouterEnfantCC();
+  await Promise.all([chargerInscriptions(), chargerComptes(), chargerEnfants(), chargerTaches(), chargerContenu(), chargerReunionsRappel(), chargerPaiementsAdmin(), chargerQuestionsPatro(), chargerEvenements(), chargerDocuments()]);
+  await chargerStats();
+  renderStatsHeader();
+
+  const hash = location.hash.replace('#','');
+  if(hash){ const btn = [...document.querySelectorAll('.tab')].find(t=>(t.dataset.real||t.dataset.tab)===hash); if(btn) btn.click(); }
+})();
+
+function toggleChampsRole(){
+  const role = document.getElementById('ccRole').value;
+  document.getElementById('ccAnimateurBox').style.display = role==='animateur' ? 'block' : 'none';
+  document.getElementById('ccParentBox').style.display = role==='parent' ? 'block' : 'none';
+}
+let compteurCC = 0;
+function blocEnfantCC(n){
+  return `<fieldset data-cc="${n}">
+    <legend>Enfant ${n}</legend>
+    <div class="row">
+      <div><label>Prénom</label><input class="cce-prenom"></div>
+      <div><label>Nom</label><input class="cce-nom"></div>
+      <div><label>Lien de parenté</label><select class="cce-lien">
+        <option>Mère</option><option>Père</option><option>Tuteur/Tutrice</option><option>Grand-parent</option><option>Autre responsable</option>
+      </select></div>
+    </div>
+    <div class="row">
+      <div><label>Date de naissance</label><input type="date" class="cce-naissance"></div>
+      <div><label>Section</label><select class="cce-section">${SECTIONS.map(s=>`<option value="${s.id}">${esc(s.nom)}</option>`).join('')}</select></div>
+    </div>
+    <div class="btn-row"><button type="button" class="btn btn-danger btn-sm" onclick="this.closest('fieldset').remove()">🗑️ Retirer</button></div>
+  </fieldset>`;
+}
+function ajouterEnfantCC(){ compteurCC++; document.getElementById('ccEnfants').insertAdjacentHTML('beforeend', blocEnfantCC(compteurCC)); }
+
+async function creerCompte(){
+  const role = document.getElementById('ccRole').value;
+  const body = {
+    role, prenom: v('ccPrenom'), nom: v('ccNom'), email: v('ccEmail'), password: document.getElementById('ccPassword').value,
+    tel: v('ccTel'),
+  };
+  if(role==='animateur'){
+    body.sectionId = document.getElementById('ccSection').value;
+    body.totem = v('ccTotem'); body.tache = v('ccTache'); body.bio = document.getElementById('ccBio').value.trim();
+  }
+  if(role==='parent'){
+    body.enfants = [...document.querySelectorAll('#ccEnfants fieldset')].map(fs=>({
+      prenom: fs.querySelector('.cce-prenom').value.trim(),
+      nom: fs.querySelector('.cce-nom').value.trim(),
+      lien: fs.querySelector('.cce-lien').value,
+      naissance: fs.querySelector('.cce-naissance').value,
+      sectionId: fs.querySelector('.cce-section').value,
+    })).filter(e=>e.prenom);
+  }
+  if(!body.prenom||!body.nom||!body.email||!body.password) return toast('Merci de compléter les champs obligatoires (*)',true);
+  if(role==='animateur' && !body.sectionId) return toast('La section est obligatoire pour un animateur',true);
+  try{
+    await api('admin/comptes/creer',{method:'POST',body});
+    document.getElementById('ccMsg').innerHTML = '<div class="alert alert-ok">✅ Compte créé avec succès.</div>';
+    ['ccPrenom','ccNom','ccEmail','ccPassword','ccTel','ccTotem','ccTache','ccBio'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    document.getElementById('ccEnfants').innerHTML=''; compteurCC=0; ajouterEnfantCC();
+    await chargerComptes(); await chargerEnfants(); renderStatsHeader();
+  }catch(e){ document.getElementById('ccMsg').innerHTML = `<div class="alert alert-err">${esc(e.message)}</div>`; }
+}
+
+function renderStatsHeader(){
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="val">${ENFANTS.length}</div><div class="lbl">Enfants inscrits</div></div>
+    <div class="stat"><div class="val">${COMPTES.filter(c=>c.role==='animateur').length}</div><div class="lbl">Animateurs</div></div>
+    <div class="stat jaune"><div class="val">${COMPTES.filter(c=>c.statut==='attente').length}</div><div class="lbl">Inscriptions en attente</div></div>
+    <div class="stat rouge"><div class="val">${ENFANTS.reduce((t,e)=>t+(e.paiements||[]).filter(p=>!p.paye).length,0)}</div><div class="lbl">Paiements en attente</div></div>`;
+}
+
+async function chargerInscriptions(){
+  const { inscriptions } = await api('admin/inscriptions');
+  document.getElementById('inscriptions').innerHTML = inscriptions.length ? inscriptions.map(c=>`
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div><h4 style="margin:0">${esc(c.prenom)} ${esc(c.nom)} <span class="chip chip-role">${c.role}</span></h4>
+        <p class="hint">${esc(c.email)} • ${esc(c.tel||'')} • ${esc(c.adresse||'')} ${esc(c.codePostal||'')} ${esc(c.localite||'')}</p>
+        ${c.role==='parent'?`<p class="hint">Enfant(s) : ${(c.enfantsEnAttente||[]).map(e=>`${esc(e.prenom)} ${esc(e.nom||'')} (${fmtDateCourt(e.naissance)})`).join(', ')}</p>`:'<p class="hint">Compte animateur — sans enfant.</p>'}</div>
+        <div class="btn-row" style="margin:0">
+          <button class="btn btn-primary btn-sm" onclick="validerInscription('${c.id}')">✔ Valider</button>
+          <button class="btn btn-danger btn-sm" onclick="refuserInscription('${c.id}')">✘ Refuser</button>
+        </div>
+      </div>
+    </div>`).join('') : '<div class="empty"><span class="big">📭</span>Aucune demande en attente.</div>';
+}
+async function validerInscription(id){ await api('admin/inscriptions/valider',{method:'POST',body:{compteId:id}}); toast('Compte validé ✔'); await chargerInscriptions(); await chargerComptes(); await chargerEnfants(); renderStatsHeader(); }
+async function refuserInscription(id){ if(!confirm('Refuser cette demande ?'))return; await api('admin/inscriptions/refuser',{method:'POST',body:{compteId:id}}); toast('Demande refusée'); await chargerInscriptions(); }
+
+async function chargerComptes(){
+  const { comptes } = await api('admin/comptes');
+  COMPTES = comptes.filter(c=>c.statut==='valide');
+  document.getElementById('rCompte').innerHTML = COMPTES.map(c=>`<option value="${c.id}">${esc(c.prenom)} ${esc(c.nom)} (${esc(c.email)}) — ${c.role}</option>`).join('');
+  document.getElementById('tReferent').innerHTML = '<option value="">— Nom libre ci-dessous —</option>' +
+    COMPTES.filter(c=>c.role!=='parent').map(c=>`<option value="${c.id}">${esc(c.prenom)} ${esc(c.nom)}</option>`).join('');
+  document.getElementById('listeAnimateurs').innerHTML = SECTIONS.map(s=>{
+    const equipe = COMPTES.filter(c=>c.role==='animateur' && c.sectionId===s.id);
+    return `<section class="card" style="border-top:5px solid ${s.couleur};margin-bottom:14px">
+      <h4>${s.emoji} ${esc(s.nom)}</h4>
+      ${equipe.length? `<div class="table-wrap"><table><thead><tr><th>Nom</th><th>Totem</th><th>Téléphone</th><th>Statut</th><th></th></tr></thead>
+        <tbody>${equipe.map(c=>`<tr><td>${esc(c.prenom)} ${esc(c.nom)}</td><td>${esc(c.totem||'—')}</td><td>${esc(c.tel||'—')}</td>
+          <td><span class="badge badge-ok">Actif</span></td>
+          <td><button class="btn btn-danger btn-sm" onclick="supprimerAnimateur('${c.id}','${esc(c.prenom)} ${esc(c.nom)}')">🗑️ Supprimer</button></td></tr>`).join('')}</tbody></table></div>`
+      : '<div class="empty">Aucun animateur.</div>'}
+    </section>`;
+  }).join('');
+  document.getElementById('listeComptes').innerHTML = `
+    <div class="table-wrap"><table><thead><tr><th>Nom</th><th>E-mail</th><th>Rôle</th><th>Statut</th><th></th></tr></thead>
+      <tbody>${comptes.map(c=>`<tr>
+        <td>${esc(c.prenom)} ${esc(c.nom)}</td><td>${esc(c.email)}</td>
+        <td><span class="chip chip-role">${c.role}</span></td>
+        <td>${c.statut==='valide'?'<span class="badge badge-ok">Validé</span>':c.statut==='attente'?'<span class="badge badge-jaune">En attente</span>':'<span class="badge badge-ko">Refusé</span>'}</td>
+        <td>${c.role!=='admin'?`<button class="btn btn-danger btn-sm" onclick="supprimerCompte('${c.id}')">🗑️ Supprimer</button>`:''}</td>
+      </tr>`).join('')}</tbody></table></div>`;
+}
+async function supprimerAnimateur(id, nom){
+  if(!confirm(`Êtes-vous sûr de vouloir supprimer cet animateur ?\n\n${nom}\n\nCette action supprimera son accès à son compte animateur. Les réunions, présences et questions déjà enregistrées seront conservées.`)) return;
+  try{ await api('admin/comptes/supprimer',{method:'POST',body:{compteId:id}}); toast('Animateur supprimé — accès révoqué'); await chargerComptes(); }
+  catch(e){ toast(e.message,true); }
+}
+async function supprimerCompte(id){
+  if(!confirm('Supprimer définitivement ce compte ?')) return;
+  try{ await api('admin/comptes/supprimer',{method:'POST',body:{compteId:id}}); toast('Compte supprimé'); await chargerComptes(); }
+  catch(e){ toast(e.message,true); }
+}
+async function attribuer(){
+  const compteId = document.getElementById('rCompte').value;
+  const role = document.getElementById('rRole').value;
+  const body = { compteId, role, tel: document.getElementById('rTel').value.trim() || undefined,
+    totem: document.getElementById('rTotem').value.trim() || undefined, tache: document.getElementById('rTache').value.trim() || undefined };
+  if(role==='animateur') body.sectionId = document.getElementById('rSection').value; else body.sectionId = null;
+  try{ await api('admin/comptes/role',{method:'POST',body}); toast('Rôle mis à jour ✔'); await chargerComptes(); }
+  catch(e){ toast(e.message,true); }
+}
+
+async function chargerEnfants(){
+  const { enfants } = await api('admin/enfants');
+  ENFANTS = enfants;
+  document.getElementById('parSection').innerHTML = SECTIONS.map(s=>{
+    const n = ENFANTS.filter(e=>e.sectionId===s.id).length;
+    return `<div class="stat" style="border-left-color:${s.couleur}"><div class="val">${n}</div><div class="lbl">${s.emoji} ${esc(s.nom)}</div></div>`;
+  }).join('');
+  document.getElementById('pEnfant').innerHTML = ENFANTS.map(e=>`<option value="${e.id}">${esc(e.prenom)} ${esc(e.nom)}</option>`).join('');
+  renderEnfants();
+}
+function renderEnfants(){
+  const f = document.getElementById('fSection').value;
+  const list = f ? ENFANTS.filter(e=>e.sectionId===f) : ENFANTS;
+  document.getElementById('listeEnfants').innerHTML = list.length ? `
+    <div class="table-wrap"><table>
+      <thead><tr><th>Enfant</th><th>Section</th><th>Âge</th><th>Cotisation</th><th>Camp</th><th></th></tr></thead>
+      <tbody>${list.map(e=>{
+        const s=SECTIONS.find(x=>x.id===e.sectionId);
+        const cot = (e.paiements||[]).find(p=>p.type==='cotisation');
+        const camp = (e.paiements||[]).find(p=>p.type==='camp');
+        return `<tr>
+          <td><a href="admin-enfant.html?id=${e.id}"><strong>${esc(e.prenom)} ${esc(e.nom)}</strong></a></td>
+          <td>${s?esc(s.nom):'—'}</td><td>${age(e.naissance)} ans</td>
+          <td>${cot?`<span class="badge ${cot.paye?'badge-ok':'badge-ko'}">${cot.paye?'🟢':'🔴'} ${cot.montant}€</span>`:'—'}</td>
+          <td>${camp?`<span class="badge ${camp.paye?'badge-ok':'badge-ko'}">${camp.paye?'🟢':'🔴'} ${camp.montant}€</span>`:'—'}</td>
+          <td><a class="btn btn-ghost btn-sm" href="admin-enfant.html?id=${e.id}">Voir la fiche →</a></td>
+        </tr>`;
+      }).join('')}</tbody></table></div>` : '<div class="empty">Aucun enfant.</div>';
+}
+
+let PAIEMENTS_ADMIN = [];
+function toggleCiblePaiement(){
+  const c = document.getElementById('pCible').value;
+  document.getElementById('pSectionBox').style.display = c==='section' ? 'block' : 'none';
+  document.getElementById('pEnfantBox').style.display = c==='enfant' ? 'block' : 'none';
+}
+async function creerPaiement(){
+  const body = {
+    titre: v('pTitre'), montant: document.getElementById('pMontant').value,
+    description: document.getElementById('pDescription').value.trim(),
+    dateLimite: document.getElementById('pDateLimite').value || null,
+    cible: document.getElementById('pCible').value,
+    sectionId: document.getElementById('pSection').value, enfantId: document.getElementById('pEnfant').value,
+  };
+  if(!body.titre || !body.montant) return toast('Titre et montant sont obligatoires',true);
+  try{
+    const r = await api('admin/paiements/creer',{method:'POST',body});
+    document.getElementById('pMsg').innerHTML = `<div class="alert alert-ok">✅ Paiement créé pour ${r.nbCrees} enfant(s).</div>`;
+    ['pTitre','pMontant','pDescription','pDateLimite'].forEach(id=>document.getElementById(id).value='');
+    await chargerPaiementsAdmin(); renderStatsHeader();
+  }catch(e){ document.getElementById('pMsg').innerHTML = `<div class="alert alert-err">${esc(e.message)}</div>`; }
+}
+async function chargerPaiementsAdmin(){
+  const { paiements } = await api('admin/paiements');
+  PAIEMENTS_ADMIN = paiements;
+  renderPaiementsAdmin();
+}
+function renderPaiementsAdmin(){
+  const filtre = document.getElementById('pFiltre').value;
+  let list = PAIEMENTS_ADMIN;
+  if(filtre==='attente') list = list.filter(p=>!p.paye);
+  document.getElementById('listePaiements').innerHTML = list.length ? `
+    <div class="table-wrap"><table>
+      <thead><tr><th>Parent</th><th>Enfant</th><th>Paiement</th><th>Montant</th><th>Statut</th><th></th></tr></thead>
+      <tbody>${list.map(p=>`<tr>
+        <td>${esc(p.parentNom)}<div class="hint">${esc(p.parentEmail)}</div></td>
+        <td>${esc(p.enfantNom)}</td>
+        <td><strong>${esc(p.label)}</strong>${p.description?`<div class="hint">${esc(p.description)}</div>`:''}${p.dateLimite?`<div class="hint">Avant le ${fmtDateCourt(p.dateLimite)}</div>`:''}</td>
+        <td>${p.montant} €</td>
+        <td>${p.paye?'<span class="badge badge-ok">🟢 Payé</span>':'<span class="badge badge-ko">🔴 En attente</span>'}</td>
+        <td><button class="btn btn-sm ${p.paye?'btn-danger':'btn-primary'}" onclick="toggleStatutPaiement('${p.enfantId}','${p.paiementId}',${!p.paye})">
+          ${p.paye?'Marquer non payé':'Marquer payé'}</button></td>
+      </tr>`).join('')}</tbody></table></div>` : '<div class="empty"><span class="big">🎉</span>Aucun paiement en attente.</div>';
+}
+async function toggleStatutPaiement(enfantId, paiementId, paye){
+  try{ await api('admin/paiements/marquer',{method:'POST',body:{enfantId,paiementId,paye}}); toast('Paiement mis à jour ✔'); await chargerPaiementsAdmin(); renderStatsHeader(); }
+  catch(e){ toast(e.message,true); }
+}
+
+function toggleSections(){ document.getElementById('evSections').style.display = document.getElementById('evToutes').checked ? 'none':'flex'; }
+async function chargerEvenements(){
+  const { reunions } = await api('reunions');
+  EVENEMENTS = reunions.sort((a,b)=>a.date.localeCompare(b.date));
+  renderEvenements();
+}
+function renderEvenements(){
+  document.getElementById('listeEvenements').innerHTML = EVENEMENTS.length ? `
+    <div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>Titre</th><th>Type</th><th>Sections</th><th></th></tr></thead>
+      <tbody>${EVENEMENTS.map(r=>`<tr id="evenement-${r.id}">
+        <td>${fmtDateCourt(r.date)}${r.dateFin?`<div class="hint">→ ${fmtDateCourt(r.dateFin)}</div>`:''}</td>
+        <td><strong>${esc(r.titre)}</strong></td>
+        <td>${TYPE_LABEL[r.type]||r.type}</td>
+        <td>${(r.sections||[]).length===SECTIONS.length?'<span class="badge badge-neutre">Toutes</span>':(r.sections||[]).map(sid=>{const s=SECTIONS.find(x=>x.id===sid);return `<span class="chip">${s?s.nom:sid}</span>`}).join('')}</td>
+        <td><button class="btn btn-ghost btn-sm" onclick="editEvenement('${r.id}')">✏️ Modifier</button>
+            <button class="btn btn-danger btn-sm" onclick="supprimerEvenement('${r.id}')">🗑️</button></td>
+      </tr>`).join('')}</tbody></table></div>` : '<div class="empty">Aucun événement créé.</div>';
+}
+function editEvenement(id){
+  const r = EVENEMENTS.find(x=>x.id===id); if(!r) return;
+  evId.value=r.id; evTitre.value=r.titre; evType.value=r.type; evDate.value=r.date; evDateFin.value=r.dateFin||'';
+  evDebut.value=r.heureDebut||''; evFin.value=r.heureFin||''; evLieu.value=r.lieu||''; evDescription.value=r.description||'';
+  const toutes = (r.sections||[]).length === SECTIONS.length;
+  document.getElementById('evToutes').checked = toutes;
+  document.querySelectorAll('.evSec').forEach(c=>c.checked = !toutes && (r.sections||[]).includes(c.value));
+  toggleSections();
+  document.getElementById('evFormTitre').textContent = '✏️ Modifier l\'événement';
+  document.getElementById('evBtnSubmit').textContent = '💾 Enregistrer les modifications';
+  document.getElementById('evNotifierBox').style.display = 'block';
+  document.getElementById('panel-evenement').scrollIntoView({behavior:'smooth'});
+}
+function resetEvenementForm(){
+  ['evId','evTitre','evDate','evDateFin','evDescription'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('evToutes').checked = true; toggleSections();
+  document.querySelectorAll('.evSec').forEach(c=>c.checked=false);
+  document.getElementById('evFormTitre').textContent = '📅 Nouvel événement';
+  document.getElementById('evBtnSubmit').textContent = '🚀 Créer l\'événement';
+  document.getElementById('evNotifierBox').style.display = 'none';
+  document.getElementById('evNotifier').checked = false;
+}
+async function enregistrerEvenement(){
+  const secs = [...document.querySelectorAll('.evSec:checked')].map(c=>c.value);
+  const reunion = { id: evId.value || undefined, titre: v('evTitre'), type: document.getElementById('evType').value, date: v('evDate'),
+    dateFin: v('evDateFin')||null, heureDebut: v('evDebut'), heureFin: v('evFin'), lieu: v('evLieu'),
+    description: document.getElementById('evDescription').value.trim(),
+    sections: document.getElementById('evToutes').checked ? [] : secs };
+  if(!reunion.titre||!reunion.date) return toast('Nom et date requis',true);
+  const estModif = !!reunion.id;
+  try{
+    await api('admin/evenement',{method:'POST',body:{reunion, notifierModif: estModif && document.getElementById('evNotifier').checked}});
+    toast(estModif ? 'Événement modifié ✔' : 'Événement créé ✔');
+    resetEvenementForm(); await chargerEvenements();
+  }catch(e){ toast(e.message,true); }
+}
+async function supprimerEvenement(id){
+  if(!confirm('Supprimer cet événement ?')) return;
+  await api('reunions/delete',{method:'POST',body:{id}}); toast('Événement supprimé'); await chargerEvenements();
+}
+
+async function chargerTaches(){
+  const { taches } = await api('admin/taches');
+  document.getElementById('listeTaches').innerHTML = taches.length ? taches.map(t=>{
+    const ref = COMPTES.find(c=>c.id===t.referentCompteId);
+    return `<div class="paiement-ligne"><div><strong>${esc(t.nom)}</strong><div class="hint">Référent : ${ref?esc(ref.prenom+' '+ref.nom):esc(t.referentNomLibre||'—')}</div></div>
+      <div><button class="btn btn-ghost btn-sm" onclick="editTache('${t.id}')">✏️</button>
+      <button class="btn btn-danger btn-sm" onclick="delTache('${t.id}')">🗑️</button></div></div>`;
+  }).join('') : '<div class="empty">Aucune tâche définie.</div>';
+}
+function editTache(id){ api('admin/taches').then(({taches})=>{ const t=taches.find(x=>x.id===id);
+  tId.value=t.id; tNom.value=t.nom; tReferent.value=t.referentCompteId||''; tNomLibre.value=t.referentNomLibre||'';
+  document.getElementById('tacheTitre').textContent='✏️ Modifier la tâche'; }); }
+function resetTache(){ ['tId','tNom','tNomLibre'].forEach(i=>document.getElementById(i).value=''); tReferent.value=''; document.getElementById('tacheTitre').textContent='➕ Ajouter une tâche'; }
+async function saveTache(){
+  const tache = { id: tId.value||undefined, nom: v('tNom'), referentCompteId: document.getElementById('tReferent').value||null, referentNomLibre: v('tNomLibre') };
+  if(!tache.nom) return toast('Nom de tâche requis',true);
+  try{ await api('admin/taches',{method:'POST',body:{tache}}); toast('Tâche enregistrée ✔'); resetTache(); await chargerTaches(); }catch(e){ toast(e.message,true); }
+}
+async function delTache(id){ if(!confirm('Supprimer cette tâche ?'))return; await api('admin/taches/delete',{method:'POST',body:{id}}); toast('Supprimée'); await chargerTaches(); }
+
+async function chargerReunionsRappel(){
+  const { reunions } = await api('reunions');
+  const today = new Date().toISOString().slice(0,10);
+  const futures = reunions.filter(r=>r.date>=today).sort((a,b)=>a.date.localeCompare(b.date));
+  document.getElementById('rapReunion').innerHTML = futures.map(r=>`<option value="${r.id}">${fmtDateCourt(r.date)} — ${esc(r.titre)}</option>`).join('');
+  if(futures.length) chargerManquants();
+}
+async function chargerManquants(){
+  const reunionId = document.getElementById('rapReunion').value;
+  if(!reunionId){ document.getElementById('manquants').innerHTML=''; return; }
+  const { manquants } = await api('presences/manquants?reunionId='+encodeURIComponent(reunionId));
+  document.getElementById('manquants').innerHTML = manquants.length ? `
+    <div class="table-wrap"><table><thead><tr><th>Enfant</th><th>Parent</th><th>E-mail</th></tr></thead>
+      <tbody>${manquants.map(m=>`<tr><td>${esc(m.enfant.prenom)} ${esc(m.enfant.nom)}</td>
+        <td>${m.parent?esc(m.parent.prenom+' '+m.parent.nom):'—'}</td><td>${m.parent?esc(m.parent.email):'—'}</td></tr>`).join('')}
+      </tbody></table></div>
+    <div class="btn-row"><button class="btn btn-jaune" onclick="envoyerRappel('${reunionId}')">🔔 Envoyer un rappel à ces ${manquants.length} parent(s)</button></div>`
+    : '<div class="empty">✅ Tous les parents ont répondu pour cette réunion.</div>';
+}
+async function envoyerRappel(reunionId){
+  const r = await api('admin/rappels/presence',{method:'POST',body:{reunionId}});
+  toast(`Rappel envoyé à ${r.nbRappels} parent(s) ✔`); await chargerManquants();
+}
+
+async function chargerQuestionsPatro(){
+  const { questions } = await api('questions/patro');
+  document.getElementById('questionsPatro').innerHTML = questions.length ? questions.map(q=>`
+    <div class="notif-item ${q.statut==='ouverte'?'non-lue':''}" style="cursor:default">
+      <div class="ico-notif">🏛️</div>
+      <div style="flex:1">
+        <strong>${esc(q.auteurNom)}</strong>${q.enfantNom?` (parent de ${esc(q.enfantNom)})`:''}
+        <p style="margin:4px 0">${esc(q.texte)}</p>
+        <p class="hint">${fmtDateCourt(q.date.slice(0,10))} — ${q.statut==='ouverte'?'en attente de réponse':'répondue'}</p>
+        ${q.reponses.map(r=>`<div class="alert alert-ok" style="margin:6px 0">Réponse : ${esc(r.texte)}</div>`).join('')}
+        ${q.statut==='ouverte'?`<div style="margin-top:8px"><textarea id="repP-${q.id}" placeholder="Votre réponse..." style="min-height:70px"></textarea>
+          <button class="btn btn-primary btn-sm" style="margin-top:6px" onclick="repondrePatro('${q.id}')">Répondre</button></div>`:''}
+      </div></div>`).join('') : '<div class="empty">Aucune question générale pour le moment.</div>';
+}
+async function repondrePatro(id){
+  const texte = document.getElementById('repP-'+id).value.trim();
+  if(!texte) return toast('Merci de rédiger une réponse',true);
+  try{ await api('questions/repondre',{method:'POST',body:{questionId:id,texte}}); toast('Réponse envoyée ✔'); await chargerQuestionsPatro(); }
+  catch(e){ toast(e.message,true); }
+}
+
+let STATS=null;
+async function chargerStats(){
+  const annee = document.getElementById('statAnnee').value || new Date().getFullYear();
+  STATS = await api('admin/stats?annee='+annee);
+  document.getElementById('statAnnee').innerHTML = (STATS.annees.length?STATS.annees:[String(new Date().getFullYear())])
+    .map(a=>`<option value="${a}" ${a===STATS.annee?'selected':''}>${a}</option>`).join('');
+  document.getElementById('statGlobal').innerHTML = Object.entries(STATS.global).map(([type,val])=>`
+    <div class="stat"><div class="val">${val===null?'—':val+'%'}</div><div class="lbl">${STATS.labelsType[type]}</div></div>`).join('');
+  renderStatSection();
+  document.getElementById('statEvenements').innerHTML = STATS.parEvenement.length ? `
+    <div class="table-wrap"><table><thead><tr><th>Date</th><th>Événement</th><th>Type</th><th>Taux de présence</th></tr></thead>
+      <tbody>${STATS.parEvenement.map(e=>`<tr><td>${fmtDateCourt(e.date)}</td><td>${esc(e.titre)}</td><td>${STATS.labelsType[e.type]}</td>
+        <td>${e.taux===null?'<span class="badge badge-neutre">n/a</span>':`<span class="badge ${e.taux>=80?'badge-ok':e.taux>=50?'badge-jaune':'badge-ko'}">${e.taux}%</span>`}</td></tr>`).join('')}
+      </tbody></table></div>` : '<div class="empty">Aucun événement pour cette année.</div>';
+}
+function renderStatSection(){
+  if(!STATS) return;
+  const sid = document.getElementById('statSection').value || SECTIONS[0]?.id;
+  const data = STATS.parSection[sid] || {};
+  document.getElementById('statSectionDetail').innerHTML = Object.entries(data).map(([type,val])=>`
+    <div class="stat jaune"><div class="val">${val===null?'—':val+'%'}</div><div class="lbl">${STATS.labelsType[type]}</div></div>`).join('');
+}
+
+async function chargerContenu(){
+  const { contenu } = await api('contenu');
+  cPatro.value = contenu.patroTexte||''; cInfos.value = contenu.infosImportantes||'';
+  cCompteBancaire.value = contenu.compteBancaire || 'BE49 0012 6285 0171';
+  cDifficulte.value = contenu.texteDifficulteFinanciere || '';
+  renderHistoire(contenu.histoire||[]);
+}
+async function saveContenu(which){
+  let body = {};
+  if(which==='patro') body = { patroTexte: cPatro.value };
+  else if(which==='infos') body = { infosImportantes: cInfos.value };
+  else if(which==='paiement') body = { compteBancaire: cCompteBancaire.value.trim(), texteDifficulteFinanciere: cDifficulte.value };
+  try{ await api('admin/contenu',{method:'POST',body}); toast('Contenu mis à jour ✔'); }catch(e){ toast(e.message,true); }
+}
+function renderHistoire(list){
+  document.getElementById('listeHistoire').innerHTML = list.length ? list.sort((a,b)=>String(a.date).localeCompare(String(b.date))).map(h=>`
+    <div class="paiement-ligne"><div><strong>${esc(h.date)} — ${esc(h.titre)}</strong><div class="hint">${esc(h.texteCourt||'')}</div></div>
+    <div><button class="btn btn-ghost btn-sm" onclick='editHistoire(${JSON.stringify(h).replace(/'/g,"&apos;")})'>✏️</button>
+    <button class="btn btn-danger btn-sm" onclick="delHistoire('${h.id}')">🗑️</button></div></div>`).join('')
+    : '<div class="empty">Aucun événement.</div>';
+}
+function editHistoire(h){ hId.value=h.id; hDate.value=h.date; hTitre.value=h.titre; hCourt.value=h.texteCourt||''; hLong.value=h.texteLong||'';
+  document.getElementById('histTitre').textContent='✏️ Modifier l\'événement'; document.getElementById('histTitre').scrollIntoView({behavior:'smooth'}); }
+function resetHistoire(){ ['hId','hDate','hTitre','hCourt','hLong'].forEach(i=>document.getElementById(i).value=''); document.getElementById('histTitre').textContent='➕ Ajouter une date à l\'histoire'; }
+async function saveHistoire(){
+  const evenement = { id: hId.value||undefined, date: v('hDate'), titre: v('hTitre'), texteCourt: v('hCourt'), texteLong: hLong.value.trim() };
+  if(!evenement.date||!evenement.titre) return toast('Date et titre requis',true);
+  try{ await api('admin/histoire',{method:'POST',body:{evenement}}); toast('Événement enregistré ✔'); resetHistoire(); await chargerContenu(); }catch(e){ toast(e.message,true); }
+}
+async function delHistoire(id){ if(!confirm('Supprimer cet événement historique ?'))return; await api('admin/histoire/delete',{method:'POST',body:{id}}); toast('Supprimé'); await chargerContenu(); }
+
+async function chargerDocuments(){
+  const { documentsRequis } = await api('admin/documents');
+  DOCUMENTS_REQUIS = documentsRequis;
+  renderDocuments();
+}
+function renderDocuments(){
+  document.getElementById('listeDocuments').innerHTML = DOCUMENTS_REQUIS.length ? `
+    <div class="table-wrap"><table>
+      <thead><tr><th>Nom</th><th>Instructions</th><th>Obligatoire</th><th>Type</th><th></th></tr></thead>
+      <tbody>${DOCUMENTS_REQUIS.map(d=>`<tr>
+        <td><strong>${esc(d.nom)}</strong></td>
+        <td class="hint" style="max-width:320px">${esc(d.instructions||'')}</td>
+        <td>${d.obligatoire?'<span class="badge badge-jaune">Oui</span>':'<span class="badge badge-neutre">Non</span>'}</td>
+        <td>${d.protege?'<span class="badge badge-info">Structurel</span>':'<span class="badge badge-neutre">Personnalisé</span>'}</td>
+        <td><button class="btn btn-ghost btn-sm" onclick='editDocument(${JSON.stringify(d).replace(/'/g,"&apos;")})'>✏️ Modifier</button>
+        ${!d.protege?`<button class="btn btn-danger btn-sm" onclick="delDocument('${d.id}')">🗑️ Supprimer</button>`:''}</td>
+      </tr>`).join('')}</tbody></table></div>` : '<div class="empty">Aucun document défini.</div>';
+}
+function editDocument(d){
+  dId.value=d.id; dNom.value=d.nom; dObligatoire.value=String(!!d.obligatoire); dInstructions.value=d.instructions||'';
+  document.getElementById('docFormTitre').textContent='✏️ Modifier « '+d.nom+' »';
+  document.getElementById('dProtegeHint').style.display = d.protege ? 'block' : 'none';
+  document.getElementById('panel-documents').scrollIntoView({behavior:'smooth'});
+}
+function resetDocument(){
+  ['dId','dNom','dInstructions'].forEach(i=>document.getElementById(i).value='');
+  dObligatoire.value='true';
+  document.getElementById('docFormTitre').textContent='➕ Ajouter un document demandé';
+  document.getElementById('dProtegeHint').style.display='none';
+}
+async function saveDocument(){
+  const document_ = { id: dId.value||undefined, nom: v('dNom'), instructions: dInstructions.value.trim(), obligatoire: dObligatoire.value==='true' };
+  if(!document_.nom) return toast('Le nom du document est obligatoire',true);
+  try{
+    await api('admin/documents',{method:'POST',body:{document:document_}});
+    document.getElementById('dMsg').innerHTML = '<div class="alert alert-ok">✅ Document enregistré. Les parents concernés ont été notifiés.</div>';
+    resetDocument(); await chargerDocuments();
+  }catch(e){ document.getElementById('dMsg').innerHTML = `<div class="alert alert-err">${esc(e.message)}</div>`; }
+}
+async function delDocument(id){
+  if(!confirm('Supprimer définitivement ce document demandé ?')) return;
+  try{ await api('admin/documents/delete',{method:'POST',body:{id}}); toast('Document supprimé'); await chargerDocuments(); }
+  catch(e){ toast(e.message,true); }
+}
+
+function v(id){ return document.getElementById(id).value.trim(); }
+toggleCiblePaiement();
+</script>
+</body></html>

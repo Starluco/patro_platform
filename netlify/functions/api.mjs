@@ -1,12 +1,15 @@
 /**
  * =====================================================================
- *  API du Patro Notre-Dame d'Ittre — v3.0.2 (SQL / Netlify DB)
+ *  API du Patro Notre-Dame d'Ittre — v3.0 (SQL / Netlify DB)
  * =====================================================================
- *  CORRECTIF v3.0.2 : voir lib/db.mjs — la connexion Neon est désormais
- *  paresseuse (créée au premier appel réel, dans le try/catch ci-dessous)
- *  au lieu d'être créée au chargement du module. Cela évite un 502
- *  générique de Netlify si NETLIFY_DATABASE_URL n'est pas encore prête,
- *  et transforme ce cas en une réponse JSON claire (500 + message).
+ *  MIGRATION D'ARCHITECTURE :
+ *  - Toutes les données métier sont stockées dans Netlify DB
+ *    (Postgres/Neon), via des tables relationnelles avec clés
+ *    étrangères explicites. Netlify Blobs n'est plus utilisé pour
+ *    l'état applicatif.
+ *  - La connexion `neon()` (voir lib/db.mjs) est fournie sans
+ *    argument : Netlify injecte automatiquement l'URL de connexion
+ *    appropriée (production, deploy preview ou branche).
  * =====================================================================
  */
 import { randomBytes } from 'node:crypto';
