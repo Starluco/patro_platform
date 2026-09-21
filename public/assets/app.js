@@ -1,5 +1,5 @@
 /* =====================================================================
-   Utilitaires communs — Patro Notre-Dame d'Ittre (v2.4)
+   Utilitaires communs — Patro Notre-Dame d'Ittre (v3.0)
    ===================================================================== */
 const API = '/api';
 
@@ -65,9 +65,6 @@ function initialesOf(){
   return ((c.prenom||' ')[0]+(c.nom||' ')[0]).toUpperCase();
 }
 
-/* Le rôle affiché est TOUJOURS celui renvoyé par /api/auth/me, qui lit
-   compte.role stocké côté base de données (jamais déduit de l'e-mail
-   ou d'une valeur codée en dur côté front). */
 async function renderHeader(current) {
   const c = session.compte;
   let nbNotif = 0;
@@ -118,11 +115,6 @@ function renderFooter() {
   </footer>`);
 }
 
-/* requireAuth() est le SEUL mécanisme de protection des pages : il
-   interroge systématiquement /api/auth/me (donc la base de données) et
-   ne se fie jamais à une donnée cachée côté front. Une page comme
-   admin.html reste donc protégée même si son URL est connue et tapée
-   directement : un compte non-admin est immédiatement redirigé. */
 async function requireAuth(roles = null) {
   if (!session.token) { location.href = 'connexion.html'; return null; }
   try {

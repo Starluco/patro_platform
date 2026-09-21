@@ -3,7 +3,7 @@
  *  Couche base de données — Patro Notre-Dame d'Ittre (v3.0)
  *  Store : Netlify DB (Neon Serverless Postgres) via @netlify/neon
  * =====================================================================
- *  ARCHITECTURE (mise à jour) :
+ *  ARCHITECTURE :
  *  - Netlify Blobs N'EST PLUS utilisé pour l'état applicatif (comptes,
  *    enfants, présences, paiements...). Toutes ces données vivent dans
  *    des tables relationnelles avec clés étrangères explicites.
@@ -11,35 +11,22 @@
  *    d'environnement injectée par Netlify (NETLIFY_DATABASE_URL). En
  *    local (`netlify dev`) comme en Preview Deploy, Netlify route
  *    automatiquement vers la branche de base de données correspondante
- *    (branching natif Neon) — AUCUNE logique de branche à écrire ici :
- *    c'est Netlify qui sélectionne la bonne URL de connexion selon le
- *    contexte de déploiement (production vs deploy preview vs branche).
- *  - Exception Blobs autorisée (cahier des charges) : uniquement pour
- *    des fichiers bruts (PDF de fiche santé scannée, photo de profil...).
- *    Dans ce cas, le fichier est stocké dans un store Blobs dédié
- *    ("patro-files") et seule sa clé/URL est enregistrée dans la colonne
- *    `blob_key` de la table `files` ci-dessous. Aucune donnée métier
- *    n'est stockée dans Blobs.
+ *    (branching natif Neon) — AUCUNE logique de branche à écrire ici.
+ *  - Exception Blobs autorisée : uniquement pour des fichiers bruts
+ *    (PDF de fiche santé scannée, photo de profil...). Seule la clé
+ *    Blobs est enregistrée dans la colonne `blob_key` de la table
+ *    `files` ci-dessous. Aucune donnée métier n'est stockée dans Blobs.
  * =====================================================================
  */
 import { neon } from '@netlify/neon';
 
-// Connexion — Netlify injecte automatiquement l'URL (et sa branche Neon
-// correcte selon l'environnement : production / deploy preview / branch).
 export const sql = neon();
 
 let schemaReady = false;
 
-/**
- * Crée les tables si elles n'existent pas encore (idempotent, donc
- * sans danger même appelé à chaque cold start) et insère les données
- * de référence (sections, admin initial, gabarits de documents,
- * contenu par défaut) UNIQUEMENT si elles sont absentes.
- */
 export async function ensureSchema() {
   if (schemaReady) return;
 
-  // --- Tables de référence -------------------------------------------------
   await sql`CREATE TABLE IF NOT EXISTS sections (
     id       TEXT PRIMARY KEY,
     nom      TEXT NOT NULL,
@@ -50,7 +37,6 @@ export async function ensureSchema() {
     emoji    TEXT NOT NULL
   )`;
 
-  // --- Comptes (parents / animateurs / admin) -------------------------------
   await sql`CREATE TABLE IF NOT EXISTS users (
     id              TEXT PRIMARY KEY,
     email           TEXT NOT NULL UNIQUE,
@@ -77,7 +63,6 @@ export async function ensureSchema() {
   await sql`CREATE INDEX IF NOT EXISTS idx_users_section ON users(section_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_users_statut ON users(statut)`;
 
-  // --- Enfants ---------------------------------------------------------------
   await sql`CREATE TABLE IF NOT EXISTS children (
     id                   TEXT PRIMARY KEY,
     parent_id            TEXT REFERENCES users(id) ON DELETE SET NULL,
@@ -94,7 +79,6 @@ export async function ensureSchema() {
   await sql`CREATE INDEX IF NOT EXISTS idx_children_section ON children(section_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_children_nom ON children(nom, prenom)`;
 
-  // --- Liens parent(s) <-> enfant (plusieurs responsables possibles) --------
   await sql`CREATE TABLE IF NOT EXISTS parent_child_links (
     id         TEXT PRIMARY KEY,
     parent_id  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -105,7 +89,6 @@ export async function ensureSchema() {
   await sql`CREATE INDEX IF NOT EXISTS idx_pcl_parent ON parent_child_links(parent_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_pcl_child ON parent_child_links(child_id)`;
 
-  // --- Événements (réunions / soupers / journées / camps) --------------------
   await sql`CREATE TABLE IF NOT EXISTS events (
     id           TEXT PRIMARY KEY,
     titre        TEXT NOT NULL,
@@ -128,7 +111,6 @@ export async function ensureSchema() {
   )`;
   await sql`CREATE INDEX IF NOT EXISTS idx_es_section ON event_sections(section_id)`;
 
-  // --- Présences (une ligne par enfant + par événement) -----------------------
   await sql`CREATE TABLE IF NOT EXISTS presences (
     id             TEXT PRIMARY KEY,
     child_id       TEXT NOT NULL REFERENCES children(id) ON DELETE CASCADE,
@@ -142,7 +124,6 @@ export async function ensureSchema() {
   await sql`CREATE INDEX IF NOT EXISTS idx_presences_event ON presences(event_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_presences_child ON presences(child_id)`;
 
-  // --- Paiements ---------------------------------------------------------------
   await sql`CREATE TABLE IF NOT EXISTS payments (
     id             TEXT PRIMARY KEY,
     child_id       TEXT NOT NULL REFERENCES children(id) ON DELETE CASCADE,
@@ -158,7 +139,6 @@ export async function ensureSchema() {
   await sql`CREATE INDEX IF NOT EXISTS idx_payments_child ON payments(child_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_payments_paye ON payments(paye)`;
 
-  // --- Notifications -------------------------------------------------------------
   await sql`CREATE TABLE IF NOT EXISTS notifications (
     id       TEXT PRIMARY KEY,
     user_id  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -171,7 +151,6 @@ export async function ensureSchema() {
   )`;
   await sql`CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, lue)`;
 
-  // --- Questions & réponses -------------------------------------------------------
   await sql`CREATE TABLE IF NOT EXISTS questions (
     id          TEXT PRIMARY KEY,
     user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -195,7 +174,6 @@ export async function ensureSchema() {
   )`;
   await sql`CREATE INDEX IF NOT EXISTS idx_qr_question ON question_responses(question_id)`;
 
-  // --- Tâches / référents ----------------------------------------------------------
   await sql`CREATE TABLE IF NOT EXISTS tasks (
     id                  TEXT PRIMARY KEY,
     nom                 TEXT NOT NULL,
@@ -203,7 +181,6 @@ export async function ensureSchema() {
     referent_nom_libre  TEXT DEFAULT ''
   )`;
 
-  // --- Sessions (jetons d'authentification) -----------------------------------------
   await sql`CREATE TABLE IF NOT EXISTS sessions (
     token       TEXT PRIMARY KEY,
     user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -211,13 +188,11 @@ export async function ensureSchema() {
   )`;
   await sql`CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)`;
 
-  // --- Contenu du site (clé/valeur simple) -------------------------------------------
   await sql`CREATE TABLE IF NOT EXISTS site_content (
     key    TEXT PRIMARY KEY,
     value  TEXT NOT NULL DEFAULT ''
   )`;
 
-  // --- Ligne du temps (histoire) -----------------------------------------------------
   await sql`CREATE TABLE IF NOT EXISTS history_events (
     id           TEXT PRIMARY KEY,
     date         TEXT NOT NULL,
@@ -226,7 +201,6 @@ export async function ensureSchema() {
     texte_long   TEXT DEFAULT ''
   )`;
 
-  // --- Gabarits de documents demandés -------------------------------------------------
   await sql`CREATE TABLE IF NOT EXISTS document_templates (
     id            TEXT PRIMARY KEY,
     cle           TEXT NOT NULL,
@@ -238,7 +212,6 @@ export async function ensureSchema() {
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
   )`;
 
-  // --- Fiche santé (1 ligne par enfant) ------------------------------------------------
   await sql`CREATE TABLE IF NOT EXISTS health_forms (
     child_id              TEXT PRIMARY KEY REFERENCES children(id) ON DELETE CASCADE,
     nom_prenom            TEXT DEFAULT '',
@@ -256,7 +229,6 @@ export async function ensureSchema() {
     updated_at            TIMESTAMPTZ
   )`;
 
-  // --- Autorisation parentale (1 ligne par enfant) -------------------------------------
   await sql`CREATE TABLE IF NOT EXISTS parental_authorizations (
     child_id         TEXT PRIMARY KEY REFERENCES children(id) ON DELETE CASCADE,
     photo            BOOLEAN DEFAULT false,
@@ -267,14 +239,12 @@ export async function ensureSchema() {
     updated_at       TIMESTAMPTZ
   )`;
 
-  // --- Document d'inscription papier (1 ligne par enfant) --------------------------------
   await sql`CREATE TABLE IF NOT EXISTS registration_documents (
     child_id    TEXT PRIMARY KEY REFERENCES children(id) ON DELETE CASCADE,
     recu        BOOLEAN DEFAULT false,
     updated_at  TIMESTAMPTZ
   )`;
 
-  // --- Documents personnalisés (gabarits "custom") par enfant ------------------------------
   await sql`CREATE TABLE IF NOT EXISTS child_custom_documents (
     id               TEXT PRIMARY KEY,
     child_id         TEXT NOT NULL REFERENCES children(id) ON DELETE CASCADE,
@@ -284,8 +254,6 @@ export async function ensureSchema() {
     UNIQUE(child_id, doc_template_id)
   )`;
 
-  // --- Exception Blobs autorisée : fichiers bruts (PDF/photos). Seule la
-  //     clé Blobs est stockée ici, jamais le contenu binaire en base. ------------------------
   await sql`CREATE TABLE IF NOT EXISTS files (
     id             TEXT PRIMARY KEY,
     blob_key       TEXT NOT NULL,

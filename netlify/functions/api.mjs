@@ -3,19 +3,13 @@
  *  API du Patro Notre-Dame d'Ittre — v3.0 (SQL / Netlify DB)
  * =====================================================================
  *  MIGRATION D'ARCHITECTURE :
- *  - Toutes les données métier (comptes, enfants, présences, paiements,
- *    notifications, questions, tâches, contenu, documents, historique,
- *    sessions) sont désormais stockées dans Netlify DB (Postgres/Neon),
- *    via des tables relationnelles avec clés étrangères explicites.
- *  - Netlify Blobs n'est plus utilisé pour l'état applicatif. Il reste
- *    disponible uniquement pour d'éventuels fichiers bruts (PDF/photos),
- *    via la table `files` (colonne blob_key) — non utilisé pour le
- *    moment car aucune fonctionnalité d'upload n'est encore active.
- *  - La connexion `neon()` (voir lib/db.mjs) est fournie sans argument :
- *    Netlify injecte automatiquement l'URL de connexion appropriée
- *    (production, deploy preview ou branche) — le "database branching"
- *    natif de Netlify DB est donc utilisé nativement, sans code
- *    supplémentaire ici.
+ *  - Toutes les données métier sont stockées dans Netlify DB
+ *    (Postgres/Neon), via des tables relationnelles avec clés
+ *    étrangères explicites. Netlify Blobs n'est plus utilisé pour
+ *    l'état applicatif.
+ *  - La connexion `neon()` (voir lib/db.mjs) est fournie sans
+ *    argument : Netlify injecte automatiquement l'URL de connexion
+ *    appropriée (production, deploy preview ou branche).
  * =====================================================================
  */
 import { randomBytes } from 'node:crypto';
@@ -41,8 +35,6 @@ const json = (data, status = 200) =>
   });
 const err = (msg, status = 400) => json({ error: msg }, status);
 
-/** Construit les objets "enfant" enrichis (paiements + documents) au format
- * consommé par le front, en regroupant plusieurs requêtes SQL. */
 async function buildChildFull(row) {
   const child = mapChild(row);
   const payments = await sql`SELECT * FROM payments WHERE child_id = ${child.id} ORDER BY created_at`;
@@ -94,11 +86,11 @@ async function enrichDocumentsForChild(child) {
   }));
 }
 
-function paiementDefaultRows(childId) {
-  return [
-    { id: uid('pay'), type: 'cotisation', label: "Cotisation annuelle (goûters inclus)", montant: 50 },
-    { id: uid('pay'), type: 'camp', label: "Camp d'été", montant: 150 },
-  ].map((p) => ({ ...p, childId }));
+async function paiementSeed(childId) {
+  const labelCotisation = "Cotisation annuelle (goûters inclus)";
+  const labelCamp = "Camp d'été";
+  await sql`INSERT INTO payments (id, child_id, type, label, montant) VALUES (${uid('pay')}, ${childId}, 'cotisation', ${labelCotisation}, 50)`;
+  await sql`INSERT INTO payments (id, child_id, type, label, montant) VALUES (${uid('pay')}, ${childId}, 'camp', ${labelCamp}, 150)`;
 }
 
 export default async (request, context) => {
@@ -112,13 +104,9 @@ export default async (request, context) => {
     await ensureSchema();
 
     const token = request.headers.get('x-auth-token');
-    const compteRow = await getUserByToken(token);
-    const compte = compteRow || null; // ligne SQL brute (snake_case) tant que non "public-ifiée"
+    const compte = await getUserByToken(token);
     const need = (...roles) => compte && roles.includes(compte.role);
 
-    // -------------------------------------------------------------------
-    // Routes publiques
-    // -------------------------------------------------------------------
     if (route === 'system/status' && request.method === 'GET') {
       const [{ count }] = await sql`SELECT COUNT(*)::int AS count FROM users`;
       return json({ nbComptes: count, initialise: count > 0 });
@@ -165,8 +153,6 @@ export default async (request, context) => {
           await sql`INSERT INTO children (id, parent_id, prenom, nom, naissance, section_id, allergies, remarques_medicales, photo_autorisee)
                     VALUES (${childId}, NULL, ${ef.prenom}, ${ef.nom || nom}, ${ef.naissance || null}, ${ef.sectionId || null},
                             ${ef.allergies || ''}, ${ef.remarquesMedicales || ''}, ${!!ef.photoAutorisee})`;
-          // Lien parent<->enfant créé APRES validation admin (voir admin/inscriptions/valider) ;
-          // on stocke temporairement le futur parent via une table de correspondance légère :
           await sql`INSERT INTO parent_child_links (id, parent_id, child_id, lien)
                     VALUES (${uid('pcl')}, ${userId}, ${childId}, ${ef.lien || 'Responsable'})`;
           await paiementSeed(childId);
@@ -203,13 +189,6 @@ export default async (request, context) => {
       return json({ compte: mapUserPublic(compte), label: await labelForUser(compte), nbNotificationsNonLues: count });
     }
 
-    /* -----------------------------------------------------------------
-       Procédure de récupération d'accès administrateur ("break glass").
-       Route PUBLIQUE (pas besoin d'être connecté) mais protégée par une
-       clé secrète (ADMIN_RECOVERY_KEY, variable d'environnement Netlify ;
-       valeur par défaut si non définie — à changer en production).
-       Ne fonctionne que s'il n'existe plus aucun admin valide en base.
-       ----------------------------------------------------------------- */
     if (route === 'auth/recuperer-admin' && request.method === 'POST') {
       const cleAttendue = (globalThis.process && globalThis.process.env && globalThis.process.env.ADMIN_RECOVERY_KEY) || 'PATRO-RECUP-2024';
       const { action, email, cleSecrete, prenom, nom, password } = body;
@@ -241,25 +220,17 @@ export default async (request, context) => {
     if (!compte) return err('Vous devez être connecté.', 401);
 
     if (route === 'compte/coordonnees' && request.method === 'POST') {
-      const fields = { prenom: 'prenom', nom: 'nom', tel: 'tel', adresse: 'adresse', codePostal: 'code_postal', localite: 'localite', contactUrgence: 'contact_urgence', remarques: 'remarques' };
-      const sets = [];
-      const vals = {};
-      for (const [jsKey, col] of Object.entries(fields)) {
-        if (body[jsKey] !== undefined) { sets.push(col); vals[col] = body[jsKey]; }
-      }
-      if (sets.length) {
-        await sql`UPDATE users SET
-          prenom = COALESCE(${vals.prenom ?? null}, prenom),
-          nom = COALESCE(${vals.nom ?? null}, nom),
-          tel = COALESCE(${vals.tel ?? null}, tel),
-          adresse = COALESCE(${vals.adresse ?? null}, adresse),
-          code_postal = COALESCE(${vals.code_postal ?? null}, code_postal),
-          localite = COALESCE(${vals.localite ?? null}, localite),
-          contact_urgence = COALESCE(${vals.contact_urgence ?? null}, contact_urgence),
-          remarques = COALESCE(${vals.remarques ?? null}, remarques),
-          updated_at = now()
-          WHERE id = ${compte.id}`;
-      }
+      await sql`UPDATE users SET
+        prenom = COALESCE(${body.prenom ?? null}, prenom),
+        nom = COALESCE(${body.nom ?? null}, nom),
+        tel = COALESCE(${body.tel ?? null}, tel),
+        adresse = COALESCE(${body.adresse ?? null}, adresse),
+        code_postal = COALESCE(${body.codePostal ?? null}, code_postal),
+        localite = COALESCE(${body.localite ?? null}, localite),
+        contact_urgence = COALESCE(${body.contactUrgence ?? null}, contact_urgence),
+        remarques = COALESCE(${body.remarques ?? null}, remarques),
+        updated_at = now()
+        WHERE id = ${compte.id}`;
       const [fresh] = await sql`SELECT * FROM users WHERE id = ${compte.id}`;
       return json({ compte: mapUserPublic(fresh), label: await labelForUser(fresh) });
     }
@@ -397,7 +368,7 @@ export default async (request, context) => {
       const sectionsCibles = sections.length ? sections : (await getSections()).map((s) => s.id);
       await notifyParentsBySections(sectionsCibles,
         isEdit ? 'Événement modifié' : 'Nouvelle date au calendrier',
-        (row) => `« ${r.titre} » ${isEdit ? 'a été modifié' : 'a été ajouté(e)'} le ${r.date}.`, eventId, 'animateur');
+        () => `« ${r.titre} » ${isEdit ? 'a été modifié' : 'a été ajouté(e)'} le ${r.date}.`, eventId, 'animateur');
 
       const [row] = await sql`SELECT e.*, ${sections} AS sections FROM events e WHERE e.id = ${eventId}`;
       return json(mapEvent(row));
@@ -557,8 +528,8 @@ export default async (request, context) => {
       await sql`UPDATE questions SET statut = 'repondue' WHERE id = ${q.id}`;
       const lienReponse = q.child_id ? `enfant.html?id=${q.child_id}#questions` : 'mes-enfants.html';
       await notify(q.user_id, 'Réponse à votre question', body.texte.slice(0, 140), lienReponse, compte.role);
-      const [rows] = await enrichQuestions([{ ...q, statut: 'repondue' }]);
-      return json(rows);
+      const [enriched] = await enrichQuestions([{ ...q, statut: 'repondue' }]);
+      return json(enriched);
     }
 
     if (route === 'notifications/mes' && request.method === 'GET') {
@@ -664,12 +635,6 @@ export default async (request, context) => {
       const [fresh] = await sql`SELECT * FROM users WHERE id = ${c.id}`;
       return json(mapUserPublic(fresh));
     }
-    /* Suppression d'un compte (retire notamment l'accès d'un animateur).
-       ON DELETE CASCADE/SET NULL sur les FK garantit qu'aucune donnee
-       historique (reunions.created_by -> SET NULL, notifications ->
-       CASCADE sur ce compte uniquement, presences/questions des ENFANTS
-       -> inchangees) n'est perdue de facon incoherente : seul l'acces
-       du compte lui-meme est retire. */
     if (route === 'admin/comptes/supprimer' && request.method === 'POST') {
       const [c] = await sql`SELECT * FROM users WHERE id = ${body.compteId}`;
       if (!c) return err('Compte introuvable.', 404);
@@ -703,13 +668,6 @@ export default async (request, context) => {
       return json({ enfants: out, sections: await getSections() });
     }
 
-    /* Suppression DEFINITIVE d'un enfant (pas un masquage). Grace aux FK
-       ON DELETE CASCADE definies dans lib/db.mjs sur presences.child_id,
-       payments.child_id, questions.child_id (SET NULL), parent_child_links,
-       health_forms, parental_authorizations, registration_documents et
-       child_custom_documents, un simple DELETE FROM children suffit a
-       nettoyer TOUTES les donnees liees sans requete manuelle repetee et
-       sans laisser de donnee orpheline. */
     if (route === 'admin/enfants/supprimer' && request.method === 'POST') {
       const { enfantId } = body;
       const [child] = await sql`SELECT * FROM children WHERE id = ${enfantId}`;
@@ -878,7 +836,6 @@ export default async (request, context) => {
                 VALUES (${id}, ${cle}, ${d.nom}, ${d.instructions || ''}, ${!!d.obligatoire}, ${protege}, now())
                 ON CONFLICT (id) DO UPDATE SET nom=EXCLUDED.nom, instructions=EXCLUDED.instructions, obligatoire=EXCLUDED.obligatoire, updated_at=now()`;
       const [saved] = await sql`SELECT * FROM document_templates WHERE id = ${id}`;
-      // Notifie tous les parents ayant un enfant (un document requis concerne potentiellement chaque enfant).
       const kids = await sql`SELECT id, prenom, parent_id FROM children WHERE parent_id IS NOT NULL`;
       for (const k of kids) {
         await notify(k.parent_id,
@@ -985,12 +942,5 @@ export default async (request, context) => {
     return err(e.message + ' | ' + (e.stack || '').slice(0, 300), 500);
   }
 };
-
-async function paiementSeed(childId) {
-  const labelCotisation = "Cotisation annuelle (goûters inclus)";
-  const labelCamp = "Camp d'été";
-  await sql`INSERT INTO payments (id, child_id, type, label, montant) VALUES (${uid('pay')}, ${childId}, 'cotisation', ${labelCotisation}, 50)`;
-  await sql`INSERT INTO payments (id, child_id, type, label, montant) VALUES (${uid('pay')}, ${childId}, 'camp', ${labelCamp}, 150)`;
-}
 
 export const config = { path: '/api/*' };

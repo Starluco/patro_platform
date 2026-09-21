@@ -15,11 +15,6 @@ export { randomBytes };
 export const TYPES_EVENEMENT = ['reunion', 'souper', 'journee', 'camp'];
 export const LABEL_TYPE = { reunion: 'Réunion', souper: 'Souper', journee: 'Journée spéciale', camp: 'Camp' };
 
-// ---------------------------------------------------------------------------
-// Mappers ligne SQL (snake_case) -> objet JS (camelCase), au plus proche du
-// format déjà consommé par le front-end existant, pour limiter les
-// changements côté HTML/JS public.
-// ---------------------------------------------------------------------------
 export function mapSection(r) {
   return { id: r.id, nom: r.nom, tranche: r.tranche, ageMin: r.age_min, ageMax: r.age_max, couleur: r.couleur, emoji: r.emoji };
 }
@@ -85,10 +80,6 @@ export function mapHistory(r) {
   return { id: r.id, date: r.date, titre: r.titre, texteCourt: r.texte_court, texteLong: r.texte_long };
 }
 
-// ---------------------------------------------------------------------------
-// Helpers "métier" partagés entre routes
-// ---------------------------------------------------------------------------
-
 export async function getSections() {
   const rows = await sql`SELECT * FROM sections ORDER BY age_min`;
   return rows.map(mapSection);
@@ -118,7 +109,7 @@ export async function labelForUser(u) {
   if (u.role === 'admin') return `${u.prenom} ${u.nom} — Administrateur`;
   if (u.role === 'animateur') {
     const secRows = await sql`SELECT nom FROM sections WHERE id = ${u.section_id}`;
-    const secNom = secRows[0]?.nom || '';
+    const secNom = secRows[0] ? secRows[0].nom : '';
     return `${u.prenom} ${u.nom} — Animateur ${secNom}`;
   }
   const liens = await sql`
@@ -160,7 +151,6 @@ export async function canSeeChild(u, child) {
   return rows.length > 0;
 }
 
-/** Notifie tous les parents ayant un enfant dans une des sections données. */
 export async function notifyParentsBySections(sections, titre, texteFn, eventId, origine) {
   if (!sections || !sections.length) return;
   const rows = await sql`

@@ -53,10 +53,6 @@
     document.getElementById('zonePubliqueSeule').style.display = 'none';
     document.getElementById('bulleInscription').style.display = 'none';
     document.getElementById('bulleConnexion').style.display = 'none';
-    /* La tuile Administrateur n'est affichée QUE si le rôle (lu depuis
-       la base via /api/auth/me, voir requireAuth/renderHeader) est
-       réellement 'admin'. Un parent ou un animateur ne la voit jamais,
-       et la page admin.html elle-même revérifie ce rôle côté serveur. */
     if (c.role === 'admin') document.getElementById('bulleAdmin').style.display = 'flex';
     document.getElementById('titreBienvenue').textContent = `Bonjour ${c.prenom} !`;
     document.getElementById('heroActions').innerHTML = `

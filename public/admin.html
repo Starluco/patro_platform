@@ -263,8 +263,6 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
 });
 
 (async function(){
-  /* requireAuth(['admin']) protège réellement cette page : le rôle est
-     revérifié côté serveur (compte.role en base) à chaque chargement. */
   const me = await requireAuth(['admin']); if(!me) return;
   await renderHeader('admin.html'); renderFooter();
   const s = await api('sections'); SECTIONS = s.sections;
@@ -669,7 +667,6 @@ async function saveHistoire(){
 }
 async function delHistoire(id){ if(!confirm('Supprimer cet événement historique ?'))return; await api('admin/histoire/delete',{method:'POST',body:{id}}); toast('Supprimé'); await chargerContenu(); }
 
-/* ---------- Gestion des documents demandés ---------- */
 async function chargerDocuments(){
   const { documentsRequis } = await api('admin/documents');
   DOCUMENTS_REQUIS = documentsRequis;

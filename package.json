@@ -1,6 +1,6 @@
 {
   "name": "patro-notre-dame-ittre",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "private": true,
   "description": "Application de gestion du Patro Notre-Dame d'Ittre",
   "type": "module",
@@ -9,6 +9,6 @@
     "deploy": "netlify deploy --prod"
   },
   "dependencies": {
-    "@netlify/neon": "^1.0.0"
+    "@netlify/neon": "0.1.2"
   }
 }

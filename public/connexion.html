@@ -61,8 +61,6 @@ async function connecter(){
   if(!email||!password) return toast('E-mail et mot de passe requis',true);
   try{
     const r = await api('auth/login',{method:'POST',body:{email,password}});
-    /* Le role est celui renvoye par le serveur (compte.role en base).
-       Un compte admin peut se connecter depuis n'importe quel ecran. */
     if(r.compte.role !== 'admin' && r.compte.role !== TYPE_CHOISI){
       document.getElementById('msg').innerHTML = `<div class="alert alert-err">Ce compte n'est pas un compte ${TYPE_CHOISI==='parent'?'parent':'animateur'}. Merci de choisir le bon type de compte.</div>`;
       return;
