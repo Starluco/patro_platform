@@ -1,28 +1,57 @@
 /**
  * =====================================================================
- *  Couche base de données — Patro Notre-Dame d'Ittre (v3.0)
- *  Store : Netlify DB (Neon Serverless Postgres) via @netlify/neon
+ *  Couche base de données — Patro Notre-Dame d'Ittre (v3.0.3)
+ *  Store : Netlify DB (Postgres managé) via @netlify/database
  * =====================================================================
- *  ARCHITECTURE :
- *  - Netlify Blobs N'EST PLUS utilisé pour l'état applicatif (comptes,
- *    enfants, présences, paiements...). Toutes ces données vivent dans
- *    des tables relationnelles avec clés étrangères explicites.
- *  - `neon()` sans argument lit automatiquement la variable
- *    d'environnement injectée par Netlify (NETLIFY_DATABASE_URL). En
- *    local (`netlify dev`) comme en Preview Deploy, Netlify route
- *    automatiquement vers la branche de base de données correspondante
- *    (branching natif Neon) — AUCUNE logique de branche à écrire ici.
- *  - Exception Blobs autorisée : uniquement pour des fichiers bruts
- *    (PDF de fiche santé scannée, photo de profil...). Seule la clé
- *    Blobs est enregistrée dans la colonne `blob_key` de la table
- *    `files` ci-dessous. Aucune donnée métier n'est stockée dans Blobs.
+ *  HISTORIQUE DES CORRECTIFS :
+ *
+ *  v3.0.2 (erreur 502 au chargement) :
+ *  - La connexion à la base était créée AU CHARGEMENT du module,
+ *    ce qui faisait planter toute la fonction (502 muet) si la
+ *    connexion échouait. Corrigé en la rendant paresseuse.
+ *
+ *  v3.0.3 (erreur "NETLIFY_DATABASE_URL manquante") :
+ *  - Netlify a fait évoluer son offre "Netlify DB" : le paquet legacy
+ *    `@netlify/neon` et sa variable `NETLIFY_DATABASE_URL` ont été
+ *    remplacés par le paquet moderne `@netlify/database` et sa
+ *    variable `NETLIFY_DB_URL`. Si la base a été créée après ce
+ *    changement (ce qui est le cas ici : la base "production" existe
+ *    bien sur Netlify), `NETLIFY_DATABASE_URL` n'existe simplement
+ *    jamais, et `@netlify/neon` échoue systématiquement.
+ *  - Solution : on utilise désormais `getDatabase()` du paquet moderne
+ *    `@netlify/database`, qui résout automatiquement la bonne chaîne
+ *    de connexion pour l'environnement/branche courant(e), qu'elle
+ *    soit exposée via NETLIFY_DB_URL ou l'ancienne variable.
  * =====================================================================
  */
-import { neon } from '@netlify/neon';
+import { getDatabase } from '@netlify/database';
 
-export const sql = neon();
+let _sqlImpl = null;
+function getSqlImpl() {
+  if (!_sqlImpl) {
+    try {
+      const db = getDatabase();
+      _sqlImpl = db.sql;
+    } catch (e) {
+      throw new Error(
+        "Impossible d'initialiser la connexion à Netlify DB (Postgres). " +
+        "Vérifiez qu'une base de données est bien créée pour ce site " +
+        "(Site → Database) et que le déploiement a bien été relancé " +
+        "après sa création. Détail technique : " + e.message
+      );
+    }
+  }
+  return _sqlImpl;
+}
+
+/** Tag de template SQL — compatible avec l'usage existant sql`...`,
+ * mais la connexion réelle n'est établie qu'au premier appel effectif. */
+export function sql(...args) {
+  return getSqlImpl()(...args);
+}
 
 let schemaReady = false;
+
 
 export async function ensureSchema() {
   if (schemaReady) return;

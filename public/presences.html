@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Présences — Patro Notre-Dame d'Ittre</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main class="container">
+  <h1 class="page-title"><span class="ico">✅</span> Module de présence</h1>
+  <p class="page-sub">Indiquez pour chaque réunion si votre enfant sera présent, absent ou en retard.</p>
+
+  <!-- Connexion -->
+  <section class="card card-accent" id="boxLogin">
+    <h2>🔑 Identification</h2>
+    <label>Votre adresse e-mail de parent</label>
+    <input type="email" id="email" placeholder="prenom.nom@example.com">
+    <div class="btn-row"><button class="btn btn-primary" onclick="charger()">Voir mes réunions</button></div>
+    <p class="hint">Démo : <code>marie.durand@example.com</code></p>
+    <div id="msg"></div>
+  </section>
+
+  <div id="app" style="display:none">
+    <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+      <div><h2 style="margin:0" id="titreParent"></h2>
+           <p class="hint" style="margin:4px 0 0">Cliquez sur un statut pour l'enregistrer immédiatement.</p></div>
+      <button class="btn btn-ghost btn-sm" onclick="deconnexion()">Changer de compte</button>
+    </div>
+
+    <div class="grid grid-4" id="stats"></div>
+
+    <section class="card">
+      <div class="row">
+        <div><label>Enfant</label><select id="filtreEnfant" onchange="render()"></select></div>
+        <div><label>Période</label>
+          <select id="filtrePeriode" onchange="render()">
+            <option value="futur">Réunions à venir</option>
+            <option value="toutes">Toutes les réunions</option>
+            <option value="passe">Réunions passées</option>
+          </select></div>
+      </div>
+    </section>
+
+    <div id="liste"></div>
+  </div>
+</main>
+
+<script src="assets/app.js"></script>
+<script>
+renderNav('presences.html');
+renderFooter();
+
+let D={parent:null,enfants:[],sections:[],reunions:[],presences:[]};
+
+async function charger(mail){
+  const email=mail||document.getElementById('email').value.trim();
+  if(!email) return toast('Indiquez votre e-mail',true);
+  try{
+    const r=await api('parents/login',{method:'POST',body:{email}});
+    parentSession.set({email});
+    D.parent=r.parent; D.enfants=r.enfants; D.sections=r.sections;
+    const a=await api('reunions'); D.reunions=a.reunions;
+    const p=await api('presences'); D.presences=p.presences;
+    document.getElementById('boxLogin').style.display='none';
+    document.getElementById('app').style.display='block';
+    document.getElementById('titreParent').textContent=`Présences — famille ${D.parent.nom}`;
+    document.getElementById('filtreEnfant').innerHTML=
+      '<option value="">Tous mes enfants</option>'+
+      D.enfants.map(e=>`<option value="${e.id}">${esc(e.prenom)} ${esc(e.nom)}</option>`).join('');
+    render();
+  }catch(e){ document.getElementById('msg').innerHTML=`<div class="alert alert-err">${esc(e.message)}</div>`; }
+}
+function deconnexion(){ parentSession.clear(); location.reload(); }
+
+const sectionOf=id=>D.sections.find(s=>s.id===id);
+const presenceOf=(enfantId,reunionId)=>D.presences.find(p=>p.enfantId===enfantId&&p.reunionId===reunionId);
+
+function reunionsPourEnfant(e){
+  return D.reunions.filter(r=>!r.sections?.length||r.sections.includes(e.sectionId));
+}
+
+function render(){
+  const today=new Date().toISOString().slice(0,10);
+  const periode=document.getElementById('filtrePeriode').value;
+  const fEnf=document.getElementById('filtreEnfant').value;
+  const enfants=fEnf?D.enfants.filter(e=>e.id===fEnf):D.enfants;
+
+  /* stats */
+  let tot=0,pres=0,abs=0,attente=0;
+  D.enfants.forEach(e=>reunionsPourEnfant(e).filter(r=>r.date<=today).forEach(r=>{
+    tot++; const p=presenceOf(e.id,r.id);
+    if(!p) attente++; else if(p.statut==='present'||p.statut==='retard') pres++; else abs++;
+  }));
+  const taux=tot?Math.round(pres/tot*100):0;
+  document.getElementById('stats').innerHTML=`
+    <div class="stat"><div class="val">${D.enfants.length}</div><div class="lbl">Enfant(s)</div></div>
+    <div class="stat"><div class="val">${pres}</div><div class="lbl">Présences enregistrées</div></div>
+    <div class="stat rouge"><div class="val">${abs}</div><div class="lbl">Absences</div></div>
+    <div class="stat jaune"><div class="val">${taux}%</div><div class="lbl">Taux de participation</div></div>`;
+
+  /* liste */
+  const el=document.getElementById('liste');
+  if(!enfants.length){ el.innerHTML='<div class="empty"><span class="big">👶</span>Aucun enfant. Ajoutez-les dans l\'espace parents.</div>'; return; }
+
+  el.innerHTML=enfants.map(e=>{
+    const s=sectionOf(e.sectionId);
+    let reus=reunionsPourEnfant(e);
+    if(periode==='futur') reus=reus.filter(r=>r.date>=today);
+    if(periode==='passe') reus=reus.filter(r=>r.date<today);
+    reus=reus.sort((a,b)=>periode==='passe'?b.date.localeCompare(a.date):a.date.localeCompare(b.date)).slice(0,25);
+
+    return `<section class="card" style="border-top:5px solid ${s?s.couleur:'#999'}">
+      <h3 style="margin-bottom:2px">${s?s.emoji:'❓'} ${esc(e.prenom)} ${esc(e.nom)}</h3>
+      <p class="hint">${s?esc(s.nom)+' • '+esc(s.tranche):'Section à déterminer'} — ${age(e.naissance)} ans</p>
+      ${reus.length? `<div class="table-wrap"><table>
+        <thead><tr><th>Réunion</th><th>Date</th><th style="min-width:260px">Ma réponse</th><th>Statut</th></tr></thead>
+        <tbody>${reus.map(r=>{
+          const p=presenceOf(e.id,r.id);
+          const st=p?p.statut:null;
+          const b=(val,lab,cls)=>`<button class="btn ${st===val?cls:'btn-ghost'} btn-sm"
+             onclick="pointer('${e.id}','${r.id}','${val}')">${lab}</button>`;
+          return `<tr>
+            <td>${r.type==='camp'?'⛺':'🎈'} <strong>${esc(r.titre)}</strong>
+                <div class="hint">${esc(r.heureDebut)}–${esc(r.heureFin)} • ${esc(r.lieu)}</div></td>
+            <td>${fmtDate(r.date)}</td>
+            <td><div style="display:flex;gap:6px;flex-wrap:wrap">
+              ${b('present','✔ Présent','btn-primary')}
+              ${b('absent','✘ Absent','btn-danger')}
+              ${b('retard','🕐 Retard','btn-jaune')}
+            </div></td>
+            <td>${st?
+                 (st==='present'?'<span class="badge badge-ok">Présent</span>':
+                  st==='absent'?'<span class="badge badge-ko">Absent</span>':
+                  '<span class="badge badge-jaune">Retard</span>')
+                 :'<span class="badge badge-neutre">Sans réponse</span>'}
+                ${p?.updatedAt?`<div class="hint">maj ${fmtDateCourt(p.updatedAt.slice(0,10))}</div>`:''}</td>
+          </tr>`}).join('')}
+        </tbody></table></div>`
+      : '<div class="empty">Aucune réunion pour ce filtre.</div>'}
+    </section>`;
+  }).join('');
+}
+
+async function pointer(enfantId,reunionId,statut){
+  try{
+    const r=await api('presences',{method:'POST',body:{enfantId,reunionId,statut}});
+    const i=D.presences.findIndex(p=>p.enfantId===enfantId&&p.reunionId===reunionId);
+    if(i>=0) D.presences[i]=r; else D.presences.push(r);
+    toast(statut==='present'?'Présence enregistrée ✔':statut==='absent'?'Absence enregistrée':'Retard enregistré');
+    render();
+  }catch(e){ toast(e.message,true); }
+}
+
+(function(){ const s=parentSession.get(); if(s?.email) charger(s.email); })();
+</script>
+</body>
+</html>
