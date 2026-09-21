@@ -33,6 +33,7 @@
     <a class="bulle bulle-jaune" href="inscription.html" id="bulleInscription"><span class="emoji-big">📝</span><h3>Inscrire mon enfant</h3><p>Créer une demande de compte parent</p></a>
     <a class="bulle bulle-jaune" href="connexion.html" id="bulleConnexion"><span class="emoji-big">🔑</span><h3>Connexion</h3><p>Accéder à mon espace personnel</p></a>
     <a class="bulle bulle-jaune" href="mailto:pndi@patro.be"><span class="emoji-big">📧</span><h3>Contact</h3><p>pndi@patro.be — posez-nous vos questions</p></a>
+    <a class="bulle bulle-admin" href="admin.html" id="bulleAdmin" style="display:none"><span class="emoji-big">⚙️</span><h3>Administrateur</h3><p>Accéder à l'espace de gestion du Patro</p></a>
   </div>
 
   <div id="zonePubliqueSeule">
@@ -52,6 +53,11 @@
     document.getElementById('zonePubliqueSeule').style.display = 'none';
     document.getElementById('bulleInscription').style.display = 'none';
     document.getElementById('bulleConnexion').style.display = 'none';
+    /* La tuile Administrateur n'est affichée QUE si le rôle (lu depuis
+       la base via /api/auth/me, voir requireAuth/renderHeader) est
+       réellement 'admin'. Un parent ou un animateur ne la voit jamais,
+       et la page admin.html elle-même revérifie ce rôle côté serveur. */
+    if (c.role === 'admin') document.getElementById('bulleAdmin').style.display = 'flex';
     document.getElementById('titreBienvenue').textContent = `Bonjour ${c.prenom} !`;
     document.getElementById('heroActions').innerHTML = `
       <a href="${c.role==='admin'?'admin.html':c.role==='animateur'?'animateur.html':'mes-enfants.html'}" class="btn btn-jaune">

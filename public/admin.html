@@ -20,6 +20,7 @@
     <button class="tab" data-tab="rappels">🔔 Rappels</button>
     <button class="tab" data-tab="questions">💬 Questions</button>
     <button class="tab" data-tab="statsp" data-real="stats">📊 Stats</button>
+    <button class="tab" data-tab="documents">📁 Documents</button>
     <button class="tab" data-tab="contenu">📝 Contenu du site</button>
   </div>
 
@@ -197,6 +198,30 @@
     <section class="card"><h3>📊 Par événement</h3><div id="statEvenements"></div></section>
   </div>
 
+  <div class="tab-panel" id="panel-documents">
+    <section class="card card-accent">
+      <h3 id="docFormTitre">➕ Ajouter un document demandé</h3>
+      <input type="hidden" id="dId">
+      <div class="row">
+        <div><label>Nom du document *</label><input id="dNom" placeholder="Ex: Photo d'identité"></div>
+        <div><label>Obligatoire ?</label><select id="dObligatoire"><option value="true">Oui</option><option value="false">Non</option></select></div>
+      </div>
+      <label>Instructions / informations pour les parents</label>
+      <textarea id="dInstructions" placeholder="Expliquez ici ce que le parent doit fournir et comment."></textarea>
+      <p class="hint" id="dProtegeHint" style="display:none">⚠️ Ce document est structurel au site : sa clé technique ne peut pas être modifiée et il ne peut pas être supprimé, mais son nom et ses instructions restent librement modifiables.</p>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveDocument()">💾 Enregistrer</button>
+        <button class="btn btn-ghost" onclick="resetDocument()">Annuler</button>
+      </div>
+      <div id="dMsg"></div>
+    </section>
+    <section class="card">
+      <h3>📁 Documents actuellement demandés</h3>
+      <p class="hint">Toute création ou modification envoie automatiquement une notification aux parents concernés, avec un lien direct vers l'onglet Documents de la fiche de leur enfant.</p>
+      <div id="listeDocuments"></div>
+    </section>
+  </div>
+
   <div class="tab-panel" id="panel-contenu">
     <section class="card card-accent">
       <h3>❓ Texte « C'est quoi le Patro ? »</h3>
@@ -207,6 +232,12 @@
       <h3>📌 Texte « Infos importantes »</h3>
       <textarea id="cInfos" style="min-height:140px"></textarea>
       <div class="btn-row"><button class="btn btn-primary" onclick="saveContenu('infos')">💾 Enregistrer</button></div>
+    </section>
+    <section class="card">
+      <h3>💳 Rubrique Paiements — textes affichés aux parents</h3>
+      <label>Numéro de compte bancaire du Patro</label><input id="cCompteBancaire" placeholder="BE49 0012 6285 0171">
+      <label>Texte « difficultés financières »</label><textarea id="cDifficulte" style="min-height:120px"></textarea>
+      <div class="btn-row"><button class="btn btn-primary" onclick="saveContenu('paiement')">💾 Enregistrer</button></div>
     </section>
     <section class="card card-accent">
       <h3 id="histTitre">➕ Ajouter une date à l'histoire</h3>
@@ -223,7 +254,7 @@
 </main>
 <script src="assets/app.js"></script>
 <script>
-let SECTIONS=[], COMPTES=[], ENFANTS=[], EVENEMENTS=[];
+let SECTIONS=[], COMPTES=[], ENFANTS=[], EVENEMENTS=[], DOCUMENTS_REQUIS=[];
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));
@@ -232,6 +263,8 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
 });
 
 (async function(){
+  /* requireAuth(['admin']) protège réellement cette page : le rôle est
+     revérifié côté serveur (compte.role en base) à chaque chargement. */
   const me = await requireAuth(['admin']); if(!me) return;
   await renderHeader('admin.html'); renderFooter();
   const s = await api('sections'); SECTIONS = s.sections;
@@ -243,7 +276,7 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   document.getElementById('pSection').innerHTML = SECTIONS.map(s=>`<option value="${s.id}">${esc(s.nom)}</option>`).join('');
 
   ajouterEnfantCC();
-  await Promise.all([chargerInscriptions(), chargerComptes(), chargerEnfants(), chargerTaches(), chargerContenu(), chargerReunionsRappel(), chargerPaiementsAdmin(), chargerQuestionsPatro(), chargerEvenements()]);
+  await Promise.all([chargerInscriptions(), chargerComptes(), chargerEnfants(), chargerTaches(), chargerContenu(), chargerReunionsRappel(), chargerPaiementsAdmin(), chargerQuestionsPatro(), chargerEvenements(), chargerDocuments()]);
   await chargerStats();
   renderStatsHeader();
 
@@ -608,10 +641,15 @@ function renderStatSection(){
 async function chargerContenu(){
   const { contenu } = await api('contenu');
   cPatro.value = contenu.patroTexte||''; cInfos.value = contenu.infosImportantes||'';
+  cCompteBancaire.value = contenu.compteBancaire || 'BE49 0012 6285 0171';
+  cDifficulte.value = contenu.texteDifficulteFinanciere || '';
   renderHistoire(contenu.histoire||[]);
 }
 async function saveContenu(which){
-  const body = which==='patro' ? { patroTexte: cPatro.value } : { infosImportantes: cInfos.value };
+  let body = {};
+  if(which==='patro') body = { patroTexte: cPatro.value };
+  else if(which==='infos') body = { infosImportantes: cInfos.value };
+  else if(which==='paiement') body = { compteBancaire: cCompteBancaire.value.trim(), texteDifficulteFinanciere: cDifficulte.value };
   try{ await api('admin/contenu',{method:'POST',body}); toast('Contenu mis à jour ✔'); }catch(e){ toast(e.message,true); }
 }
 function renderHistoire(list){
@@ -630,6 +668,52 @@ async function saveHistoire(){
   try{ await api('admin/histoire',{method:'POST',body:{evenement}}); toast('Événement enregistré ✔'); resetHistoire(); await chargerContenu(); }catch(e){ toast(e.message,true); }
 }
 async function delHistoire(id){ if(!confirm('Supprimer cet événement historique ?'))return; await api('admin/histoire/delete',{method:'POST',body:{id}}); toast('Supprimé'); await chargerContenu(); }
+
+/* ---------- Gestion des documents demandés ---------- */
+async function chargerDocuments(){
+  const { documentsRequis } = await api('admin/documents');
+  DOCUMENTS_REQUIS = documentsRequis;
+  renderDocuments();
+}
+function renderDocuments(){
+  document.getElementById('listeDocuments').innerHTML = DOCUMENTS_REQUIS.length ? `
+    <div class="table-wrap"><table>
+      <thead><tr><th>Nom</th><th>Instructions</th><th>Obligatoire</th><th>Type</th><th></th></tr></thead>
+      <tbody>${DOCUMENTS_REQUIS.map(d=>`<tr>
+        <td><strong>${esc(d.nom)}</strong></td>
+        <td class="hint" style="max-width:320px">${esc(d.instructions||'')}</td>
+        <td>${d.obligatoire?'<span class="badge badge-jaune">Oui</span>':'<span class="badge badge-neutre">Non</span>'}</td>
+        <td>${d.protege?'<span class="badge badge-info">Structurel</span>':'<span class="badge badge-neutre">Personnalisé</span>'}</td>
+        <td><button class="btn btn-ghost btn-sm" onclick='editDocument(${JSON.stringify(d).replace(/'/g,"&apos;")})'>✏️ Modifier</button>
+        ${!d.protege?`<button class="btn btn-danger btn-sm" onclick="delDocument('${d.id}')">🗑️ Supprimer</button>`:''}</td>
+      </tr>`).join('')}</tbody></table></div>` : '<div class="empty">Aucun document défini.</div>';
+}
+function editDocument(d){
+  dId.value=d.id; dNom.value=d.nom; dObligatoire.value=String(!!d.obligatoire); dInstructions.value=d.instructions||'';
+  document.getElementById('docFormTitre').textContent='✏️ Modifier « '+d.nom+' »';
+  document.getElementById('dProtegeHint').style.display = d.protege ? 'block' : 'none';
+  document.getElementById('panel-documents').scrollIntoView({behavior:'smooth'});
+}
+function resetDocument(){
+  ['dId','dNom','dInstructions'].forEach(i=>document.getElementById(i).value='');
+  dObligatoire.value='true';
+  document.getElementById('docFormTitre').textContent='➕ Ajouter un document demandé';
+  document.getElementById('dProtegeHint').style.display='none';
+}
+async function saveDocument(){
+  const document_ = { id: dId.value||undefined, nom: v('dNom'), instructions: dInstructions.value.trim(), obligatoire: dObligatoire.value==='true' };
+  if(!document_.nom) return toast('Le nom du document est obligatoire',true);
+  try{
+    await api('admin/documents',{method:'POST',body:{document:document_}});
+    document.getElementById('dMsg').innerHTML = '<div class="alert alert-ok">✅ Document enregistré. Les parents concernés ont été notifiés.</div>';
+    resetDocument(); await chargerDocuments();
+  }catch(e){ document.getElementById('dMsg').innerHTML = `<div class="alert alert-err">${esc(e.message)}</div>`; }
+}
+async function delDocument(id){
+  if(!confirm('Supprimer définitivement ce document demandé ?')) return;
+  try{ await api('admin/documents/delete',{method:'POST',body:{id}}); toast('Document supprimé'); await chargerDocuments(); }
+  catch(e){ toast(e.message,true); }
+}
 
 function v(id){ return document.getElementById(id).value.trim(); }
 toggleCiblePaiement();

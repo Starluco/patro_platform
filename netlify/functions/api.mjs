@@ -1,22 +1,25 @@
 /**
  * =====================================================================
- *  API du Patro Notre-Dame d'Ittre — v2.3
+ *  API du Patro Notre-Dame d'Ittre — v2.4
  *  Base de donnees : Netlify Blobs (store "patro-db", cle "database")
  *  Routage : /api/*  (config.path). Coherence forte (strong) partout.
  * =====================================================================
- *  NOUVEAUTES v2.3 :
- *  - admin/evenement accepte desormais un id pour MODIFIER un evenement
- *    existant (pas seulement en creer un). Notification optionnelle des
- *    parents/animateurs concernes lors d'une modification.
- *  - Toutes les notifications portent desormais un "lien" precis
- *    (page + parametres + ancre) permettant au front de rediriger
- *    directement l'utilisateur vers l'element concerne au clic.
- *  - Inscription publique accepte un role ('parent' ou 'animateur').
- *    Un compte animateur en attente n'a jamais d'enfants associes.
- *  - admin/comptes/supprimer (deja existant) : conserve explicitement
- *    en commentaire la garantie que les donnees historiques (reunions,
- *    presences, questions) ne sont jamais supprimees, seul le compte
- *    et ses sessions actives le sont.
+ *  NOUVEAUTES v2.4 :
+ *  - Suppression DEFINITIVE d'un enfant (admin) : cascade complete
+ *    (presences, questions, liens de comptes) — aucune donnee orpheline.
+ *  - Gestion des "documents requis" (fiche sante, autorisation,
+ *    inscription + documents personnalises) : CRUD complet admin,
+ *    notification automatique des parents concernes a chaque
+ *    creation/modification, avec lien direct vers l'onglet Documents
+ *    de l'enfant concerne.
+ *  - Changement de section d'un enfant par l'administrateur (avec
+ *    notification au parent) : l'enfant change immediatement de liste
+ *    et devient visible pour les animateurs de la nouvelle section.
+ *  - Statut par document (fourni / manquant / a verifier) exploitable
+ *    depuis la fiche enfant (admin) et l'onglet Documents (parent).
+ *  - Le role admin est toujours et uniquement determine par
+ *    compte.role stocke en base (jamais par l'e-mail en dur dans le
+ *    code) — deja garanti par l'architecture existante, renforce ici.
  * =====================================================================
  */
 import { getStore } from '@netlify/blobs';
@@ -57,6 +60,21 @@ const SECTIONS_DEFAUT = [
 const TYPES_EVENEMENT = ['reunion', 'souper', 'journee', 'camp'];
 const LABEL_TYPE = { reunion: 'Réunion', souper: 'Souper', journee: 'Journée spéciale', camp: 'Camp' };
 
+/* Documents "protégés" : structurellement liés à des formulaires fixes
+   du site (fiche santé, autorisation, document d'inscription). Leur
+   "cle" ne peut pas être supprimée, mais leur nom / instructions /
+   caractère obligatoire restent 100% modifiables par l'administrateur. */
+const CLES_DOCUMENTS_PROTEGEES = ['ficheSante', 'autorisation', 'inscription'];
+
+function seedDocumentsRequis() {
+  const now = new Date().toISOString();
+  return [
+    { id: 'doc_ficheSante', cle: 'ficheSante', nom: 'Fiche santé', instructions: "Merci de compléter la fiche santé de votre enfant (allergies, médicaments, contacts d'urgence...).", obligatoire: true, protege: true, createdAt: now, updatedAt: now },
+    { id: 'doc_autorisation', cle: 'autorisation', nom: 'Autorisation parentale', instructions: "Merci de compléter et signer (électroniquement) l'autorisation parentale.", obligatoire: true, protege: true, createdAt: now, updatedAt: now },
+    { id: 'doc_inscription', cle: 'inscription', nom: "Document d'inscription", instructions: "Le document d'inscription papier doit être remis à un animateur ou à l'administrateur.", obligatoire: true, protege: true, createdAt: now, updatedAt: now },
+  ];
+}
+
 function seed() {
   const salt = randomBytes(8).toString('hex');
   const admin = {
@@ -72,11 +90,14 @@ function seed() {
     histoire: [
       { id: 'hist_1', date: '1958', titre: "Fondation du Patro Notre-Dame d'Ittre", texteCourt: "Création du groupe par la paroisse d'Ittre.", texteLong: "Texte détaillé à compléter par l'administrateur depuis l'onglet Contenu." },
     ],
+    compteBancaire: 'BE49 0012 6285 0171',
+    texteDifficulteFinanciere: "Le Patro a pour mission d'accueillir tous les enfants, sans discrimination quelle qu'elle soit. Aussi, le coût d'une année ne peut en aucun cas constituer un obstacle à la participation de votre enfant aux activités.\n\nPour tout problème à ce sujet, veuillez prendre contact avec un responsable de votre choix, qui trouvera, avec vous, une solution en toute discrétion.",
   };
   return {
-    meta: { version: 3, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    meta: { version: 4, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
     sections: SECTIONS_DEFAUT, comptes: [admin], enfants: [], reunions: [], presences: [],
     notifications: [], questions: [], taches: [], contenu, sessions: [],
+    documentsRequis: seedDocumentsRequis(),
   };
 }
 
@@ -84,11 +105,14 @@ async function readDB() {
   const s = store();
   let db = await s.get(KEY, { type: 'json', consistency: 'strong' });
   if (!db) { db = seed(); await s.setJSON(KEY, db); }
-  for (const k of ['sections','comptes','enfants','reunions','presences','notifications','questions','taches','sessions']) {
+  for (const k of ['sections','comptes','enfants','reunions','presences','notifications','questions','taches','sessions','documentsRequis']) {
     if (!Array.isArray(db[k])) db[k] = [];
   }
   if (!db.contenu) db.contenu = seed().contenu;
+  if (db.contenu.compteBancaire === undefined) db.contenu.compteBancaire = 'BE49 0012 6285 0171';
+  if (db.contenu.texteDifficulteFinanciere === undefined) db.contenu.texteDifficulteFinanciere = seed().contenu.texteDifficulteFinanciere;
   if (!db.sections.length) db.sections = SECTIONS_DEFAUT;
+  if (!db.documentsRequis.length) db.documentsRequis = seedDocumentsRequis();
   db.sections = db.sections.map((s) => {
     const ref = SECTIONS_DEFAUT.find((d) => d.id === s.id);
     if (ref && (s.ageMin !== ref.ageMin || s.ageMax !== ref.ageMax || s.tranche !== ref.tranche)) {
@@ -149,6 +173,8 @@ function auth(db, request) {
   if (!token) return null;
   const session = db.sessions.find((s) => s.token === token);
   if (!session) return null;
+  /* Le role est TOUJOURS lu depuis le compte stocke en base — jamais
+     depuis l'e-mail ou une valeur codee en dur. */
   const compte = db.comptes.find((c) => c.id === session.compteId);
   if (!compte || compte.statut !== 'valide') return null;
   return compte;
@@ -167,7 +193,7 @@ function paiementParDefaut() {
   ];
 }
 function docsParDefaut() {
-  return { ficheSante: null, autorisation: null, autres: [] };
+  return { ficheSante: null, autorisation: null, inscription: { recu: false }, autres: [] };
 }
 function notifierParentsParEnfant(db, sections, titre, texteFn, eventId, origine) {
   db.enfants
@@ -180,6 +206,23 @@ function notifierAnimateursSections(db, sections, titre, texte, eventId, origine
   db.comptes
     .filter((c) => c.role === 'animateur' && c.statut === 'valide' && sections.includes(c.sectionId))
     .forEach((c) => notifier(db, c.id, titre, texte, `animateur.html?event=${eventId}#calendrier`, origine));
+}
+/* Calcule le statut d'un document requis pour un enfant donné :
+   'fourni' | 'manquant' | 'a_verifier' */
+function statutDocument(enfant, tpl) {
+  const docs = enfant.documents || docsParDefaut();
+  if (tpl.cle === 'ficheSante') return docs.ficheSante && docs.ficheSante.updatedAt ? 'fourni' : 'manquant';
+  if (tpl.cle === 'autorisation') return docs.autorisation && docs.autorisation.updatedAt ? 'fourni' : 'manquant';
+  if (tpl.cle === 'inscription') return docs.inscription && docs.inscription.recu ? 'fourni' : 'manquant';
+  const entree = (docs.autres || []).find((a) => a.docTemplateId === tpl.id);
+  return entree ? entree.statut || 'manquant' : 'manquant';
+}
+function enrichirDocumentsEnfant(db, enfant) {
+  return db.documentsRequis.map((tpl) => ({
+    templateId: tpl.id, cle: tpl.cle, nom: tpl.nom, instructions: tpl.instructions, obligatoire: tpl.obligatoire,
+    statut: statutDocument(enfant, tpl),
+    entree: tpl.cle === 'custom' ? (enfant.documents?.autres || []).find((a) => a.docTemplateId === tpl.id) || null : null,
+  }));
 }
 
 export default async (request, context) => {
@@ -271,6 +314,10 @@ export default async (request, context) => {
       return json({ compte: publicCompte(compte), label: labelCompte(db, compte) });
     }
 
+    if (route === 'documents/requis' && request.method === 'GET') {
+      return json({ documentsRequis: db.documentsRequis });
+    }
+
     if (route === 'enfants/mes' && request.method === 'GET') return json({ enfants: mesEnfants(db, compte), sections: db.sections });
     if (route === 'enfants/detail' && request.method === 'GET') {
       const e = db.enfants.find((x) => x.id === url.searchParams.get('id'));
@@ -279,7 +326,7 @@ export default async (request, context) => {
       const chefs = db.comptes.filter((c) => c.role === 'animateur' && c.sectionId === e.sectionId && c.statut === 'valide')
         .map((c) => ({ id: c.id, prenom: c.prenom, nom: c.nom, tel: c.tel, totem: c.totem }));
       const presencesEnfant = db.presences.filter((p) => p.enfantId === e.id);
-      return json({ enfant: e, section: db.sections.find((s) => s.id === e.sectionId) || null, chefs, presences: presencesEnfant });
+      return json({ enfant: e, section: db.sections.find((s) => s.id === e.sectionId) || null, chefs, presences: presencesEnfant, documents: enrichirDocumentsEnfant(db, e) });
     }
     if (route === 'enfants' && request.method === 'POST' && compte.role === 'parent') {
       const ef = body.enfant || {};
@@ -300,7 +347,11 @@ export default async (request, context) => {
       if (!e.documents) e.documents = docsParDefaut();
       if (type === 'autre') {
         e.documents.autres = e.documents.autres || [];
-        upsert(e.documents.autres, { ...champs, id: champs.id, updatedAt: new Date().toISOString() }, 'doc');
+        let statutFinal = champs.statut || 'fourni';
+        if (compte.role !== 'admin' && statutFinal === 'a_verifier') statutFinal = 'fourni';
+        upsert(e.documents.autres, { ...champs, statut: statutFinal, id: champs.id, updatedAt: new Date().toISOString() }, 'doc');
+      } else if (type === 'inscription') {
+        e.documents.inscription = { recu: !!champs.recu, updatedAt: new Date().toISOString() };
       } else {
         e.documents[type] = { ...champs, updatedAt: new Date().toISOString() };
       }
@@ -555,6 +606,45 @@ export default async (request, context) => {
     }
 
     if (route === 'admin/enfants' && request.method === 'GET') return json({ enfants: db.enfants, sections: db.sections });
+
+    /* -----------------------------------------------------------------
+       Suppression DEFINITIVE d'un enfant (et non un simple masquage).
+       Cascade complete pour ne laisser aucune donnee orpheline :
+         - retrait de l'enfant de db.enfants
+         - suppression de toutes les presences liees
+         - suppression de toutes les questions liees (avec leurs reponses)
+         - retrait du lien enfant dans le compte parent (db.comptes.liens)
+       ----------------------------------------------------------------- */
+    if (route === 'admin/enfants/supprimer' && request.method === 'POST') {
+      const { enfantId } = body;
+      const e = db.enfants.find((x) => x.id === enfantId);
+      if (!e) return err('Enfant introuvable.', 404);
+      db.enfants = db.enfants.filter((x) => x.id !== enfantId);
+      db.presences = db.presences.filter((p) => p.enfantId !== enfantId);
+      db.questions = db.questions.filter((q) => q.enfantId !== enfantId);
+      db.comptes.forEach((c) => { if (Array.isArray(c.liens)) c.liens = c.liens.filter((l) => l.enfantId !== enfantId); });
+      await writeDB(db);
+      return json({ ok: true });
+    }
+
+    /* Changement de section d'un enfant par l'administrateur. */
+    if (route === 'admin/enfants/section' && request.method === 'POST') {
+      const { enfantId, sectionId } = body;
+      const e = db.enfants.find((x) => x.id === enfantId);
+      if (!e) return err('Enfant introuvable.', 404);
+      if (sectionId && !db.sections.some((s) => s.id === sectionId)) return err('Section invalide.', 400);
+      const ancienneSection = db.sections.find((s) => s.id === e.sectionId);
+      const nouvelleSection = db.sections.find((s) => s.id === sectionId);
+      e.sectionId = sectionId || '';
+      if (e.compteId) {
+        notifier(db, e.compteId, 'Changement de section',
+          `${e.prenom} a été déplacé(e) ${ancienneSection ? 'de ' + ancienneSection.nom + ' ' : ''}vers la section ${nouvelleSection ? nouvelleSection.nom : '—'}.`,
+          `enfant.html?id=${e.id}`, 'admin');
+      }
+      await writeDB(db);
+      return json(e);
+    }
+
     if (route === 'admin/paiements/marquer' && request.method === 'POST') {
       const e = db.enfants.find((x) => x.id === body.enfantId);
       if (!e) return err('Enfant introuvable.', 404);
@@ -635,10 +725,48 @@ export default async (request, context) => {
     if (route === 'admin/contenu' && request.method === 'POST') {
       if (body.patroTexte !== undefined) db.contenu.patroTexte = body.patroTexte;
       if (body.infosImportantes !== undefined) db.contenu.infosImportantes = body.infosImportantes;
+      if (body.compteBancaire !== undefined) db.contenu.compteBancaire = body.compteBancaire;
+      if (body.texteDifficulteFinanciere !== undefined) db.contenu.texteDifficulteFinanciere = body.texteDifficulteFinanciere;
       await writeDB(db); return json(db.contenu);
     }
     if (route === 'admin/histoire' && request.method === 'POST') { const h = upsert(db.contenu.histoire, body.evenement || {}, 'hist'); await writeDB(db); return json(h); }
     if (route === 'admin/histoire/delete' && request.method === 'POST') { db.contenu.histoire = db.contenu.histoire.filter((x) => x.id !== body.id); await writeDB(db); return json({ ok: true }); }
+
+    /* -----------------------------------------------------------------
+       Gestion des "documents requis" (fiche santé / autorisation /
+       inscription / documents personnalisés). CRUD complet + notif.
+       ----------------------------------------------------------------- */
+    if (route === 'admin/documents' && request.method === 'GET') return json({ documentsRequis: db.documentsRequis });
+    if (route === 'admin/documents' && request.method === 'POST') {
+      const d = body.document || {};
+      const estNouveau = !d.id;
+      if (!d.nom) return err('Le nom du document est obligatoire.');
+      if (!estNouveau) {
+        const existant = db.documentsRequis.find((x) => x.id === d.id);
+        if (existant && existant.protege) d.cle = existant.cle; // la clé structurelle ne change jamais
+      } else {
+        d.cle = 'custom';
+      }
+      const saved = upsert(db.documentsRequis, { ...d, protege: estNouveau ? false : (db.documentsRequis.find((x)=>x.id===d.id)?.protege || false) }, 'doctpl');
+      // Notification de tous les parents concernés (tous les enfants, car un document requis concerne potentiellement chaque enfant).
+      db.enfants.filter((e) => e.compteId).forEach((e) => {
+        notifier(db, e.compteId,
+          estNouveau ? 'Nouveau document demandé' : 'Document mis à jour',
+          `Un document (« ${saved.nom} ») a été ${estNouveau ? 'ajouté' : 'modifié'} concernant ${e.prenom}. Veuillez consulter et mettre à jour le document demandé.`,
+          `enfant.html?id=${e.id}#documents`, 'admin');
+      });
+      await writeDB(db);
+      return json(saved);
+    }
+    if (route === 'admin/documents/delete' && request.method === 'POST') {
+      const tpl = db.documentsRequis.find((x) => x.id === body.id);
+      if (!tpl) return err('Document introuvable.', 404);
+      if (tpl.protege) return err("Ce document est structurel au site et ne peut pas être supprimé (vous pouvez toujours modifier son nom et ses instructions).", 400);
+      db.documentsRequis = db.documentsRequis.filter((x) => x.id !== body.id);
+      db.enfants.forEach((e) => { if (e.documents?.autres) e.documents.autres = e.documents.autres.filter((a) => a.docTemplateId !== body.id); });
+      await writeDB(db);
+      return json({ ok: true });
+    }
 
     if (route === 'admin/evenement' && request.method === 'POST') {
       const r = body.reunion || {};

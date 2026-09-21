@@ -25,7 +25,17 @@
       <div id="notifs" style="margin-top:14px"></div>
     </section>
   </div>
-  <div class="tab-panel" id="panel-paiements"><div id="paiements"><div class="loader"></div></div></div>
+  <div class="tab-panel" id="panel-paiements">
+    <section class="card card-accent">
+      <h3>💰 Comment payer ?</h3>
+      <p>Cette somme est à verser sur le numéro de compte du Patro en mentionnant le nom et prénom du patronné :</p>
+      <div class="compte-bancaire" id="compteBancaireAffiche">BE49 0012 6285 0171</div>
+      <p>C'est le paiement de la cotisation qui inscrit définitivement votre enfant, c'est pourquoi nous vous conseillons de faire cela au plus vite.</p>
+      <p style="margin-bottom:0">Le paiement sera ensuite validé sur votre profil dans les meilleurs délais.</p>
+    </section>
+    <div class="alert alert-discret" id="blocDifficulteFinanciere"></div>
+    <div id="paiements"><div class="loader"></div></div>
+  </div>
   <div class="tab-panel" id="panel-documents">
     <p class="page-sub">Retrouvez et modifiez les documents administratifs de chacun de vos enfants.</p>
     <div id="docsEnfants" class="grid grid-2"></div>
@@ -63,6 +73,12 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
       <span class="chip chip-role">${COMPTE.role==='admin'?'Administrateur':COMPTE.role==='animateur'?'Animateur':'Parent'}</span></p></div>`;
   ['Prenom','Nom','Tel','Adresse'].forEach(k=>document.getElementById('c'+k).value = COMPTE[k.toLowerCase()]||'');
   cUrgence.value = COMPTE.contactUrgence||''; cCP.value = COMPTE.codePostal||''; cLocalite.value = COMPTE.localite||'';
+
+  try{
+    const { contenu } = await api('contenu');
+    document.getElementById('compteBancaireAffiche').textContent = contenu.compteBancaire || 'BE49 0012 6285 0171';
+    document.getElementById('blocDifficulteFinanciere').innerHTML = `<strong>💛 Une situation financière difficile ?</strong><br>${esc(contenu.texteDifficulteFinanciere||'').replace(/\n/g,'<br>')}`;
+  }catch(e){}
 
   if(COMPTE.role==='parent'){
     const r = await api('enfants/mes'); ENFANTS = r.enfants;

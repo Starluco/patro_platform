@@ -1,5 +1,5 @@
 /* =====================================================================
-   Utilitaires communs — Patro Notre-Dame d'Ittre (v2.3)
+   Utilitaires communs — Patro Notre-Dame d'Ittre (v2.4)
    ===================================================================== */
 const API = '/api';
 
@@ -54,6 +54,7 @@ const NAV_ANIMATEUR = [
   { href: 'profil.html', label: '👤 Mon profil' },
 ];
 const NAV_ADMIN = [
+  { href: 'index.html', label: '🏠 Accueil' },
   { href: 'admin.html', label: '⚙️ Administration' },
   { href: 'profil.html', label: '👤 Mon profil' },
 ];
@@ -64,6 +65,9 @@ function initialesOf(){
   return ((c.prenom||' ')[0]+(c.nom||' ')[0]).toUpperCase();
 }
 
+/* Le rôle affiché est TOUJOURS celui renvoyé par /api/auth/me, qui lit
+   compte.role stocké côté base de données (jamais déduit de l'e-mail
+   ou d'une valeur codée en dur côté front). */
 async function renderHeader(current) {
   const c = session.compte;
   let nbNotif = 0;
@@ -114,6 +118,11 @@ function renderFooter() {
   </footer>`);
 }
 
+/* requireAuth() est le SEUL mécanisme de protection des pages : il
+   interroge systématiquement /api/auth/me (donc la base de données) et
+   ne se fie jamais à une donnée cachée côté front. Une page comme
+   admin.html reste donc protégée même si son URL est connue et tapée
+   directement : un compte non-admin est immédiatement redirigé. */
 async function requireAuth(roles = null) {
   if (!session.token) { location.href = 'connexion.html'; return null; }
   try {
@@ -188,3 +197,4 @@ function sectionSuggeree(naissance, sections) {
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const TYPE_LABEL = { reunion: '🎈 Réunion', souper: '🍽️ Souper', journee: '🌟 Journée spéciale', camp: '⛺ Camp' };
+const LABEL_STATUT_DOC = { fourni: '🟢 Fourni', manquant: '🔴 Manquant', a_verifier: '🟡 À vérifier' };

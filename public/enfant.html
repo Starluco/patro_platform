@@ -36,9 +36,15 @@
   </div>
 
   <div class="tab-panel" id="panel-documents">
+    <section class="card">
+      <h3>📋 État des documents demandés</h3>
+      <p class="hint">Ces documents sont définis par l'administrateur et peuvent évoluer au fil du temps.</p>
+      <div id="etatDocuments"></div>
+    </section>
+
     <section class="card card-accent">
       <h3>🩺 Fiche santé</h3>
-      <p style="color:var(--gris)">Merci de compléter cette fiche afin de nous permettre de prendre correctement en charge votre enfant lors des réunions, activités et séjours.</p>
+      <p style="color:var(--gris)" id="ficheSanteInstructions">Merci de compléter cette fiche afin de nous permettre de prendre correctement en charge votre enfant lors des réunions, activités et séjours.</p>
 
       <div class="sous-bloc">
         <h4 style="margin:0 0 8px">👤 Informations de l'enfant</h4>
@@ -127,6 +133,7 @@
 
     <section class="card">
       <h3>✅ Autorisation parentale</h3>
+      <p class="hint" id="autorisationInstructions"></p>
       <div class="check"><input type="checkbox" id="apPhoto"> <label style="margin:0">J'autorise la publication de photos de mon enfant</label></div>
       <div class="check"><input type="checkbox" id="apSecours"> <label style="margin:0">J'autorise les premiers secours en cas de besoin</label></div>
       <div class="check"><input type="checkbox" id="apMesures"> <label style="margin:0">J'autorise l'équipe d'animation à prendre les mesures nécessaires en cas de problème de santé ou d'urgence concernant mon enfant et à contacter les services médicaux si nécessaire.</label></div>
@@ -135,12 +142,24 @@
       <div class="btn-row"><button class="btn btn-primary" onclick="sauverAutorisation()">💾 Enregistrer l'autorisation</button></div>
       <p class="hint" id="apMaj"></p>
     </section>
+
+    <section class="card">
+      <h3>📎 Document d'inscription</h3>
+      <p class="hint" id="inscriptionInstructions"></p>
+      <div class="check"><input type="checkbox" id="dInscriptionRecu"> <label style="margin:0">J'ai bien remis le document d'inscription papier à un animateur ou à l'administrateur</label></div>
+      <div class="btn-row"><button class="btn btn-primary" onclick="sauverInscriptionDoc()">💾 Enregistrer</button></div>
+    </section>
+
+    <section class="card" id="carteAutresDocuments" style="display:none">
+      <h3>📁 Autres documents demandés</h3>
+      <div id="autresDocuments"></div>
+    </section>
   </div>
 </main>
 <script src="assets/app.js"></script>
 <script>
 const enfantId = new URLSearchParams(location.search).get('id');
-let ENFANT=null, SECTION=null, REUNIONS=[], PRESENCES=[];
+let ENFANT=null, SECTION=null, REUNIONS=[], PRESENCES=[], DOCS_REQUIS=[];
 
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
@@ -169,7 +188,7 @@ function majCategorieQuestion(){
 async function charger(){
   try{
     const d = await api('enfants/detail?id='+encodeURIComponent(enfantId));
-    ENFANT = d.enfant; SECTION = d.section;
+    ENFANT = d.enfant; SECTION = d.section; DOCS_REQUIS = d.documents || [];
     document.getElementById('filNom').textContent = `${ENFANT.prenom} ${ENFANT.nom}`;
     document.getElementById('qEnfantNom').textContent = ENFANT.prenom;
     document.getElementById('enteteEnfant').innerHTML = `
@@ -191,6 +210,8 @@ async function charger(){
           <p><a href="tel:${esc(c.tel)}" class="chip">📞 ${esc(c.tel||'—')}</a></p>
         </div>`).join('')}</div>`
       : `<div class="empty">${SECTION ? esc('Les chefs de cette section seront communiqués prochainement.') : esc("La section de cet enfant n'est pas encore définie — contactez l'administrateur.")}</div>`;
+
+    renderEtatDocuments();
 
     const fs = ENFANT.documents?.ficheSante || {};
     fsNomPrenom.value = fs.nomPrenom || (ENFANT.prenom+' '+ENFANT.nom);
@@ -214,6 +235,17 @@ async function charger(){
     apVoiture.checked = ap.voiture ?? false;
     if(ap.updatedAt) document.getElementById('apMaj').textContent='Dernière mise à jour : '+fmtDateCourt(ap.updatedAt.slice(0,10));
 
+    const insc = ENFANT.documents?.inscription || {};
+    document.getElementById('dInscriptionRecu').checked = !!insc.recu;
+
+    const tplFiche = DOCS_REQUIS.find(t=>t.cle==='ficheSante');
+    const tplAuto = DOCS_REQUIS.find(t=>t.cle==='autorisation');
+    const tplInsc = DOCS_REQUIS.find(t=>t.cle==='inscription');
+    if(tplFiche) document.getElementById('ficheSanteInstructions').textContent = tplFiche.instructions;
+    if(tplAuto) document.getElementById('autorisationInstructions').textContent = tplAuto.instructions;
+    if(tplInsc) document.getElementById('inscriptionInstructions').textContent = tplInsc.instructions;
+
+    renderAutresDocuments();
     await chargerQuestions();
   }catch(e){
     document.getElementById('enteteEnfant').innerHTML = '';
@@ -221,6 +253,37 @@ async function charger(){
   }
 }
 function setRadio(name, val){ const el = document.querySelector(`input[name="${name}"][value="${val}"]`); if(el) el.checked = true; }
+
+function renderEtatDocuments(){
+  document.getElementById('etatDocuments').innerHTML = DOCS_REQUIS.length ? `
+    <div class="table-wrap"><table><thead><tr><th>Document</th><th>Instructions</th><th>Statut</th></tr></thead>
+      <tbody>${DOCS_REQUIS.map(d=>`<tr>
+        <td><strong>${esc(d.nom)}</strong>${d.obligatoire?' <span class="badge badge-jaune">obligatoire</span>':''}</td>
+        <td class="hint">${esc(d.instructions||'')}</td>
+        <td class="doc-statut-${d.statut}">${LABEL_STATUT_DOC[d.statut]||d.statut}</td>
+      </tr>`).join('')}</tbody></table></div>` : '<div class="empty">Aucun document requis pour le moment.</div>';
+}
+function renderAutresDocuments(){
+  const autres = DOCS_REQUIS.filter(d=>d.cle==='custom');
+  if(!autres.length){ document.getElementById('carteAutresDocuments').style.display='none'; return; }
+  document.getElementById('carteAutresDocuments').style.display='block';
+  document.getElementById('autresDocuments').innerHTML = autres.map(d=>`
+    <div class="sous-bloc">
+      <h4 style="margin:0 0 6px">${esc(d.nom)} ${d.obligatoire?'<span class="badge badge-jaune">obligatoire</span>':''}</h4>
+      <p class="hint" style="margin-top:0">${esc(d.instructions||'')}</p>
+      <p>Statut actuel : <span class="doc-statut-${d.statut}">${LABEL_STATUT_DOC[d.statut]||d.statut}</span></p>
+      <div class="check"><input type="checkbox" id="autre-${d.templateId}" ${d.statut==='fourni'?'checked':''}>
+        <label style="margin:0">Je confirme avoir fourni ce document</label></div>
+      <div class="btn-row"><button class="btn btn-primary btn-sm" onclick="sauverAutreDocument('${d.templateId}','${esc(d.nom)}')">💾 Mettre à jour</button></div>
+    </div>`).join('');
+}
+async function sauverAutreDocument(templateId, nom){
+  const recu = document.getElementById('autre-'+templateId).checked;
+  try{
+    await api('enfants/document',{method:'POST',body:{enfantId,type:'autre',champs:{id:templateId, docTemplateId:templateId, nom, statut: recu?'fourni':'manquant'}}});
+    toast('Document mis à jour ✔'); await charger();
+  }catch(e){ toast(e.message,true); }
+}
 
 function renderCalendrier(){
   const today = new Date().toISOString().slice(0,10);
@@ -294,6 +357,10 @@ async function sauverFicheSante(){
 async function sauverAutorisation(){
   const champs = { photo: apPhoto.checked, secours: apSecours.checked, mesuresUrgence: apMesures.checked, infosExactes: apExact.checked, voiture: apVoiture.checked };
   try{ await api('enfants/document',{method:'POST',body:{enfantId,type:'autorisation',champs}}); toast('Autorisation enregistrée ✔'); await charger(); }
+  catch(e){ toast(e.message,true); }
+}
+async function sauverInscriptionDoc(){
+  try{ await api('enfants/document',{method:'POST',body:{enfantId,type:'inscription',champs:{recu: document.getElementById('dInscriptionRecu').checked}}}); toast('Mis à jour ✔'); await charger(); }
   catch(e){ toast(e.message,true); }
 }
 

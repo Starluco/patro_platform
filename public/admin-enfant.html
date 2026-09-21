@@ -6,12 +6,31 @@
 <main class="container">
   <p class="fil-ariane"><a href="admin.html">🏠 Administration</a> / <a href="admin.html#enfants">Enfants</a> / <span id="filNom"></span></p>
   <div class="card card-accent" id="entete" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><div class="loader"></div></div>
+
+  <section class="card">
+    <h3>🎯 Section de l'enfant</h3>
+    <p class="hint">Modifier la section déplace immédiatement l'enfant vers la nouvelle équipe d'animateurs.</p>
+    <div class="row">
+      <div><label>Section actuelle</label><select id="sectionSelect"></select></div>
+    </div>
+    <div class="btn-row"><button class="btn btn-primary" onclick="changerSection()">💾 Enregistrer la nouvelle section</button></div>
+    <div id="sectionMsg"></div>
+  </section>
+
   <div class="grid grid-4" id="stats"></div>
   <div class="grid grid-2">
     <section class="card"><h3>📅 Présences</h3><div id="presences"></div></section>
     <section class="card"><h3>💳 Paiements</h3><div id="paiements"></div></section>
   </div>
-  <section class="card"><h3>📄 Documents</h3><div id="documents"></div></section>
+
+  <section class="card">
+    <h3>📄 Documents de l'enfant</h3>
+    <p class="hint">État de chaque document demandé par l'administration (défini dans l'onglet « Documents »).</p>
+    <div id="etatDocumentsAdmin"></div>
+  </section>
+
+  <section class="card"><h3>🩺 Détail fiche santé & ✅ Autorisation</h3><div id="documents"></div></section>
+
   <section class="card card-accent">
     <h3>✉️ Envoyer une notification personnalisée au parent</h3>
     <label>Titre</label><input id="notifTitre" value="Message du Patro Notre-Dame d'Ittre">
@@ -19,15 +38,23 @@
     <div class="btn-row"><button class="btn btn-primary" onclick="envoyerNotif()">🚀 Envoyer</button></div>
     <div id="notifMsg"></div>
   </section>
+
+  <section class="card" style="border:2px solid #f5c6c2">
+    <h3 style="color:var(--danger)">🗑️ Zone de suppression</h3>
+    <p>La suppression d'un enfant est <strong>définitive</strong> : présences, questions et documents liés seront également supprimés de la base de données. Cette action est irréversible.</p>
+    <div class="btn-row"><button class="btn btn-danger" onclick="supprimerEnfant()">🗑️ Supprimer définitivement cet enfant</button></div>
+  </section>
 </main>
 <script src="assets/app.js"></script>
 <script>
 const enfantId = new URLSearchParams(location.search).get('id');
-let ENFANT=null, SECTIONS=[];
+let ENFANT=null, SECTIONS=[], DOCUMENTS_REQUIS=[];
 (async function(){
   const me = await requireAuth(['admin']); if(!me) return;
   await renderHeader(''); renderFooter();
   const s = await api('sections'); SECTIONS = s.sections;
+  document.getElementById('sectionSelect').innerHTML = '<option value="">— Non définie —</option>' + SECTIONS.map(s=>`<option value="${s.id}">${esc(s.nom)} (${esc(s.tranche)})</option>`).join('');
+  const dr = await api('admin/documents'); DOCUMENTS_REQUIS = dr.documentsRequis;
   await charger();
 })();
 
@@ -37,6 +64,7 @@ async function charger(){
   if(!ENFANT){ document.getElementById('entete').innerHTML = '<div class="alert alert-err">Enfant introuvable.</div>'; return; }
   const section = SECTIONS.find(s=>s.id===ENFANT.sectionId);
   document.getElementById('filNom').textContent = `${ENFANT.prenom} ${ENFANT.nom}`;
+  document.getElementById('sectionSelect').value = ENFANT.sectionId || '';
   document.getElementById('entete').innerHTML = `
     <div class="enfant-avatar" style="background:${section?section.couleur:'#999'};width:64px;height:64px;font-size:1.6rem">${esc(ENFANT.prenom[0].toUpperCase())}</div>
     <div><h2 style="margin:0">${esc(ENFANT.prenom)} ${esc(ENFANT.nom)}</h2>
@@ -78,6 +106,8 @@ async function charger(){
         ${p.paye?'Marquer non payé':'Marquer payé'}</button>
     </div>`).join('') || '<div class="empty">Aucun paiement.</div>';
 
+  renderEtatDocumentsAdmin();
+
   const fs = ENFANT.documents?.ficheSante || {}; const ap = ENFANT.documents?.autorisation || {};
   document.getElementById('documents').innerHTML = `
     <div class="grid grid-2">
@@ -110,6 +140,34 @@ async function charger(){
     </div>`;
 }
 
+function statutDocumentEnfant(tpl, enfant){
+  const docs = enfant.documents || {};
+  if(tpl.cle==='ficheSante') return docs.ficheSante && docs.ficheSante.updatedAt ? 'fourni' : 'manquant';
+  if(tpl.cle==='autorisation') return docs.autorisation && docs.autorisation.updatedAt ? 'fourni' : 'manquant';
+  if(tpl.cle==='inscription') return docs.inscription && docs.inscription.recu ? 'fourni' : 'manquant';
+  const entree = (docs.autres||[]).find(a=>a.docTemplateId===tpl.id);
+  return entree ? (entree.statut||'manquant') : 'manquant';
+}
+function renderEtatDocumentsAdmin(){
+  document.getElementById('etatDocumentsAdmin').innerHTML = DOCUMENTS_REQUIS.length ? `
+    <div class="table-wrap"><table><thead><tr><th>Document</th><th>Instructions</th><th>Statut</th></tr></thead>
+      <tbody>${DOCUMENTS_REQUIS.map(tpl=>{
+        const st = statutDocumentEnfant(tpl, ENFANT);
+        return `<tr><td><strong>${esc(tpl.nom)}</strong>${tpl.obligatoire?' <span class="badge badge-jaune">obligatoire</span>':''}</td>
+          <td class="hint">${esc(tpl.instructions||'')}</td>
+          <td class="doc-statut-${st}">${LABEL_STATUT_DOC[st]||st}</td></tr>`;
+      }).join('')}</tbody></table></div>` : '<div class="empty">Aucun document défini.</div>';
+}
+
+async function changerSection(){
+  const sectionId = document.getElementById('sectionSelect').value;
+  try{
+    await api('admin/enfants/section',{method:'POST',body:{enfantId, sectionId}});
+    document.getElementById('sectionMsg').innerHTML = '<div class="alert alert-ok">✅ Section mise à jour. Le parent a été notifié.</div>';
+    toast('Section modifiée ✔'); await charger();
+  }catch(e){ document.getElementById('sectionMsg').innerHTML = `<div class="alert alert-err">${esc(e.message)}</div>`; }
+}
+
 async function marquerPaiement(paiementId, paye){
   try{ await api('admin/paiements/marquer',{method:'POST',body:{enfantId,paiementId,paye}}); toast('Paiement mis à jour ✔'); await charger(); }
   catch(e){ toast(e.message,true); }
@@ -123,6 +181,16 @@ async function envoyerNotif(){
     document.getElementById('notifMsg').innerHTML = '<div class="alert alert-ok">✅ Notification envoyée au parent.</div>';
     document.getElementById('notifTexte').value='';
   }catch(e){ document.getElementById('notifMsg').innerHTML = `<div class="alert alert-err">${esc(e.message)}</div>`; }
+}
+
+async function supprimerEnfant(){
+  const confirmation = confirm(`Êtes-vous sûr de vouloir supprimer définitivement cet enfant ?\n\nEnfant : ${ENFANT.prenom} ${ENFANT.nom}\n\nCette action supprimera également ses données de la base de données (présences, questions, documents). Cette action est irréversible.`);
+  if(!confirmation) return;
+  try{
+    await api('admin/enfants/supprimer',{method:'POST',body:{enfantId}});
+    toast('Enfant supprimé définitivement ✔');
+    location.href = 'admin.html#enfants';
+  }catch(e){ toast(e.message,true); }
 }
 </script>
 </body></html>
